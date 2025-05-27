@@ -37,9 +37,9 @@ lka_adm1 <- lka_adm1 %>%
   mutate(country = "Sri Lanka")
 
 tm_shape(lka_adm1) +
-  tm_fill(col  = "Name") +
+  tm_fill(col = 'white') +
   tm_layout(frame =F)+
-  tm_borders(col= 'black', lwd = 1)
+  tm_borders(col= '#870F87', lwd = 2.5)
   
 
 hsee_adm1 <- get_shapefile(adm0_code = 110, level = 'adm1')
@@ -76,10 +76,11 @@ nep_adm1 <- get_shapefile(adm0_code = 175, level = 'adm1') %>%
 
 region_adm1 <- bind_rows(bga_adm1, india_adm1,pka_adm1,lka_adm1,ch_adm1,jammu,aru,nep_adm1)
 
-  
-tm_shape(region_adm1)+
-  tm_fill(col = 'country')+
-  tm_borders(col = "black")
+
+
+
+
+eth_adm1 <- get_shapefile(adm0_code = 79, level = 'adm1') 
 
 
 
