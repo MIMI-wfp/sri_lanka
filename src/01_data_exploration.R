@@ -35,6 +35,11 @@ for(file in modules){
   assign(name, read.csv(paste0(path_to_survey, file)))   
 }
 
+# read in fct
+sl_fct <- readxl::read_xlsx("C:/Users/gabriel.battcock/OneDrive - World Food Programme/General - MIMI Project/Countries/Sri Lanka/data/sri_lanka_food_matches.xlsx", 
+                  sheet = 1)
+
+
 
 # Data exploration #############################################################
 # 
@@ -98,8 +103,7 @@ check_nas(SEC_3A_HEALTH)
 
 check_nas(SEC_4_1_FOOD_EXP)# some missing quantities - look into further
 
-# missing quantities for 
-
+# missing quantities for some food items
 food_items_missing<- SEC_4_1_FOOD_EXP %>% 
   group_by(code) %>% 
   summarise(
@@ -107,7 +111,9 @@ food_items_missing<- SEC_4_1_FOOD_EXP %>%
     percent = nas/n()
   ) %>% 
   arrange(desc(nas)) %>% 
-  filter(percent != 0)
+  
+  filter(percent != 0) %>% 
+  filter( !grepl("^11|^19", code))
 
 
 SEC_4_1_FOOD_EXP %>% 
@@ -120,10 +126,282 @@ SEC_4_1_FOOD_EXP %>%
   filter(percent != 0)
 
 
+# convert all food items to grams
+
+
+# TO DO
+
+
+
+
+# imputation of missing values #######
+
+# create food group based on the survey collection
+SEC_4_1_FOOD_EXP$group <- floor(as.numeric(SEC_4_1_FOOD_EXP$code) / 100)
+
+
+# check assumption that quantity ~ value
+
+groups <- c(1:19)
+
+for(group_num in groups){
+  print(group_num)
+  
+  plot <- SEC_4_1_FOOD_EXP %>% 
+    filter(group == group_num) %>% 
+    ggplot(aes(value, quantity)) +
+    geom_point(alpha = 0.5) +
+    geom_smooth(formula = y~x+0) + # assume it goes through zero, zero value = zero quantity
+    ggtitle(paste("Group", group_num))
+  
+  print(plot)  
+}
+
+
+
+
+
+impute_quantity <- function(group_df) {
+  # Only fit model if we have enough non-missing data
+  if (sum(!is.na(group_df$quantity)) >= 2) {
+    model <- lm(quantity ~ value, data = group_df, na.action = na.exclude)
+    # Predict quantity where it is NA
+    group_df$quantity[is.na(group_df$quantity)] <- predict(model, newdata = group_df[is.na(group_df$quantity), ])
+  }
+  return(group_df)
+}
+
+
+
+
 ################################################################################
 
 # AFE calculation
 
-SEC_1_DEMOGRAPHIC %>% 
-  select(hhid, person_serial_no, relationship, sex, age,main_activity, is_active)
+# set AFE constant 
+afe_value <- 2100
 
+demographics <- SEC_1_DEMOGRAPHIC %>% 
+  select(hhid, person_serial_no, relationship, sex, age, birth_year, birth_month, month)
+
+
+# households with under 2s for breastfeeding
+u2s <- demographics %>% 
+  filter(age<=2) %>% 
+  mutate(birth_month = as.Date(paste0(15,'-',birth_month,'-',birth_year), "%d-%m-%y"),
+         survey_date = as.Date(paste0(15,'-',month,'-',19), "%d-%m-%y"),
+         age_month = floor(as.numeric(survey_date - birth_month)/30)) %>% 
+  select(hhid, person_serial_no, age_month)
+
+
+
+
+# give a 1 for hh with a 2 or under
+hh_with_u2s <- u2s %>% 
+  filter(age_month<=24) %>% 
+  group_by(hhid) %>% 
+  summarise(u2 = 1)
+
+
+# join the dataframes in
+demographics <- demographics %>% 
+  left_join(hh_with_u2s, by = 'hhid')
+
+rm(hh_with_u2s)
+
+# energy requirements for u2s --------------------------------------------------
+u2s <- u2s %>%
+  mutate(TEE = case_when(
+    age_month <= 2 ~ 0,   # only breast feeding - no food intake
+    age_month >= 3 & age_month <= 5 ~ 76,  # energy from food is 76 kcal per day for 3-5 months of age
+    age_month >= 6 & age_month <= 8 ~ 269,  # 269 kcal per day for 6-8 months of age
+    age_month >= 9 & age_month <= 11 ~ 451,   # 451 kcal per day for 9-11 months of age
+    age_month >= 12 ~ 746 # 746 kcal per day for those aged 12-months - 2years
+  )) # 746 kcal for those without a birth certificate, assuming they can be older
+
+# AFE calculation for children below 2 years old:
+afeu2 <- u2s %>%
+  mutate(afe = TEE/afe_value) %>% # 1AFE = 2100kcal
+  select(hhid, person_serial_no, afe)
+
+# breastfeeding women
+
+breastfeeding <- demographics %>%
+  filter(sex == 2 &
+           age > 15 & age < 45 &
+           u2 == 1
+         ) 
+
+
+afe_breastfeeding <- breastfeeding %>% 
+  mutate(
+    PAL = 1.76,
+    weight = 55,# assumption women 55kg
+    BMR = case_when(
+      age > 18 & age <= 30 ~ 14.818 * weight + 486.6,
+      age > 30 & age < 60 ~ 8.126 * weight + 845.6
+    ),
+    TEE = case_when(age > 15 & age <= 18 ~ 2500)
+  ) %>% 
+  mutate(TEE = ifelse(is.na(BMR), TEE +483, BMR * PAL + 483),
+         afe = TEE/afe_value) %>% 
+  select(hhid, person_serial_no, afe)
+
+
+
+
+# all others ages
+
+
+demographics_others <- demographics %>% 
+  anti_join(u2s, by = c('hhid', 'person_serial_no')) %>% 
+  anti_join(breastfeeding, by = c('hhid', 'person_serial_no'))
+
+rm(u2s)
+rm(breastfeeding)
+
+tee_calc <- demographics_others %>%
+
+  mutate(weight = ifelse(sex == 1, 65, 55)) %>% # Assumed average weight of men = 65kg
+  # Assumed average weight of women = 55kg
+  filter(age >= 2) %>%  # Remove under 2's as these have already been calculated above
+  mutate(PAL = ifelse(age > 18, 1.76, NA))  
+
+# TEE FOR CHILDREN (2-18 years old) (formula from tables 4.5 and 4.6 in Human energy requirements
+# Report from FAO/WHO/UNU (2001)):
+tee_calc <- tee_calc %>% 
+  mutate(TEE = case_when(    sex == 1 & age == 2 ~ 950,
+                             sex == 1 & age == 3 ~ 1125,
+                             sex == 1 & age == 4 ~ 1250,
+                             sex == 1 & age == 5 ~ 1350,
+                             sex == 1 & age == 6 ~ 1475,
+                             sex == 1 & age == 7 ~ 1575,
+                             sex == 1 & age == 8 ~ 1700,
+                             sex == 1 & age == 9 ~ 1825,
+                             sex == 1 & age == 10 ~ 1975,
+                             sex == 1 & age == 11 ~ 2150,
+                             sex == 1 & age == 12 ~ 2350,
+                             sex == 1 & age == 13 ~ 2550,
+                             sex == 1 & age == 14 ~ 2775,
+                             sex == 1 & age == 15 ~ 3000,
+                             sex == 1 & age == 16 ~ 3175,
+                             sex == 1 & age == 17 ~ 3325,
+                             sex == 1 & age == 18 ~ 3400,
+                             sex == 2 & age == 2 ~ 850,
+                             sex == 2 & age == 3 ~ 1050,
+                             sex == 2 & age == 4 ~ 1150,
+                             sex == 2 & age == 5 ~ 1250,
+                             sex == 2 & age == 6 ~ 1325,
+                             sex == 2 & age == 7 ~ 1425,
+                             sex == 2 & age == 8 ~ 1550,
+                             sex == 2 & age == 9 ~ 1700,
+                             sex == 2 & age == 10 ~ 1850,
+                             sex == 2 & age == 11 ~ 2000,
+                             sex == 2 & age == 12 ~ 2150,
+                             sex == 2 & age == 13 ~ 2275,
+                             sex == 2 & age == 14 ~ 2375,
+                             sex == 2 & age == 15 ~ 2450,
+                             sex == 2 & age > 15 & age <= 18 ~ 2500))
+
+
+# TEE FOR ADULTS (Formula from table 5.2 in FAO/WHO/UNU (2004)):
+tee_calc <- tee_calc %>% 
+  mutate(BMR = case_when( # Firstly need to calculate BMR for different age categories:
+    sex == 1 & age >18 & age <= 30 ~ 15.057 * weight + 692.2,
+    sex == 1 & age >30 & age < 60 ~ 11.472 * weight + 873.1,
+    sex == 1 & age >= 60 ~ 11.711 * weight + 587.7,
+    sex == 2 & age >18 & age <= 30 ~ 14.818 * weight + 486.6,
+    sex == 2 & age >30 & age < 60 ~ 8.126 * weight + 845.6, 
+    sex == 2 & age >= 60 ~ 9.082 * weight + 658.5,
+    TRUE ~ NA)) %>% # Get TEE by multiplying BMR by PAL for over 18's: 
+  mutate(TEE = ifelse(age > 18, BMR * PAL, TEE)) # 
+
+afe_others <- tee_calc %>% 
+  mutate(afe = TEE/afe_value)%>% # 1AFE = 2100kcal
+  select(hhid, person_serial_no, afe)
+
+rm(tee_calc)
+
+
+
+
+
+
+
+#-------------------------------------------------------------------------------
+
+# CALCULATE AFE FOR ALL OTHER INDIVIDUALS: 
+# afe_other <- demographic_others %>% 
+#   left_join(tee_calc %>% select(hhid, numind, TEE),
+#             by = c("hhid", "numind")) %>% 
+#   select(-ends_with(".y"), -resid) %>%
+#   rename_with(~ sub("\\.x$", "", .x), ends_with(".x")) %>%
+#   # Calculate AFE:
+#   mutate(afe = TEE / 2291) %>%  # AFE = Total energy expenditure / 2291kcal/day
+#   select(hhid, numind, afe)
+
+
+
+#-------------------------------------------------------------------------------
+# PUT ALL TOGETHER
+
+
+afe_all<- bind_rows(afeu2, afe_breastfeeding, afe_others)
+
+#check nothing missing
+
+demographics %>% 
+  anti_join(afe_all, by = c('hhid', 'person_serial_no'))
+# no-one missed
+
+afe_all %>% 
+  group_by(afe) %>% 
+  summarise(total = n())
+
+afeu2 %>% 
+  group_by(afe) %>% 
+  summarise(total = n())
+
+
+# zeros come from babies
+
+afe_all %>% 
+  filter(is.na(afe))
+# no nas
+
+afe_all %>% 
+  ggplot(aes(x = afe)) + 
+  geom_histogram()
+
+rm(afe_breastfeeding, afe_others, afeu2)
+
+# ------------------------------------------------------------------------------
+# calculate household afe
+
+hh_afe <- afe_all %>% 
+  group_by(hhid) %>% 
+  summarise(afe = sum(afe),
+            total = n())
+
+hh_size = demographics %>% 
+  group_by(hhid) %>% 
+  summarise(total = n())
+
+# check it makes sense, draw dot plot
+
+HH_expenditure_hh_Income %>%
+  left_join(hh_afe, by = 'hhid') %>%
+  select(afe, hhsize, total) %>% 
+  # filter(hhsize == 1)
+  ggplot(aes(x = total, y = afe))+
+  geom_point(alpha = 0.5) + 
+  geom_abline(intercept = 0, slope = 1, color = "red", linetype = "dashed")
+
+## the value under `hhsize` from HH expenditure does not match the number of people responding in the demographics part
+
+HH_expenditure_hh_Income %>% 
+  left_join(hh_size, by = 'hhid') %>% 
+  ggplot(aes(x = hhsize, y = total))+
+  geom_point(alpha = 0.5)+
+  geom_abline(intercept =  0, slope = 1, color = 'red')
+            
