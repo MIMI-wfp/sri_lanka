@@ -38,6 +38,8 @@ for(file in modules){
 # read in fct
 sl_fct <- readxl::read_xlsx("C:/Users/gabriel.battcock/OneDrive - World Food Programme/General - MIMI Project/Countries/Sri Lanka/data/sri_lanka_food_matches.xlsx", 
                   sheet = 1)
+conversion_factor <- readxl::read_xlsx("C:/Users/gabriel.battcock/OneDrive - World Food Programme/General - MIMI Project/Countries/Sri Lanka/data/conversion_factor_sl.xlsx", sheet = 1)
+
 
 
 
@@ -129,6 +131,12 @@ SEC_4_1_FOOD_EXP %>%
 # convert all food items to grams
 
 
+converted_food <- SEC_4_1_FOOD_EXP %>% 
+  left_join(conversion_factor, by = "code") %>% 
+  mutate(conversion_to_grams = ifelse(is.na(conversion_to_grams), 1, conversion_to_grams),
+         quantity = quantity*conversion_to_grams) 
+
+
 # TO DO
 
 
@@ -137,7 +145,7 @@ SEC_4_1_FOOD_EXP %>%
 # imputation of missing values #######
 
 # create food group based on the survey collection
-SEC_4_1_FOOD_EXP$group <- floor(as.numeric(SEC_4_1_FOOD_EXP$code) / 100)
+converted_food$group <- floor(as.numeric(converted_food$code) / 100)
 
 
 # check assumption that quantity ~ value
@@ -147,7 +155,7 @@ groups <- c(1:19)
 for(group_num in groups){
   print(group_num)
   
-  plot <- SEC_4_1_FOOD_EXP %>% 
+  plot <- converted_food %>% 
     filter(group == group_num) %>% 
     ggplot(aes(value, quantity)) +
     geom_point(alpha = 0.5) +
@@ -163,7 +171,7 @@ for(group_num in groups){
 
 impute_quantity <- function(group_df) {
   # Only fit model if we have enough non-missing data
-  if (sum(!is.na(group_df$quantity)) >= 2) {
+  if (sum(!is.na(group_df$quantity)) >= 0) {
     model <- lm(quantity ~ value, data = group_df, na.action = na.exclude)
     # Predict quantity where it is NA
     group_df$quantity[is.na(group_df$quantity)] <- predict(model, newdata = group_df[is.na(group_df$quantity), ])
@@ -172,6 +180,9 @@ impute_quantity <- function(group_df) {
 }
 
 
+
+imputed_food <- impute_quantity(converted_food) 
+check_nas(imputed_food)
 
 
 ################################################################################
@@ -230,7 +241,8 @@ breastfeeding <- demographics %>%
   filter(sex == 2 &
            age > 15 & age < 45 &
            u2 == 1
-         ) 
+         ) %>% 
+  slice(1)
 
 
 afe_breastfeeding <- breastfeeding %>% 
@@ -365,6 +377,10 @@ afeu2 %>%
 
 # zeros come from babies
 
+
+
+
+
 afe_all %>% 
   filter(is.na(afe))
 # no nas
@@ -404,4 +420,19 @@ HH_expenditure_hh_Income %>%
   ggplot(aes(x = hhsize, y = total))+
   geom_point(alpha = 0.5)+
   geom_abline(intercept =  0, slope = 1, color = 'red')
+
+
+
+#-------------------------------------------------------------------------------
+# combine total consumption with AFEs
+
+food_afe <- imputed_food %>% 
+  select(hhid, code, quantity) %>% 
+  left_join(hh_afe, by= 'hhid') %>% 
+  mutate(quantity_ai = quantity/afe,
+         quantity_100g = quantity_ai/100)
+
+rm(imputed_food, converted_food)
+
+
             
