@@ -18,8 +18,8 @@ rm(list= c("rq_packages", "installed_packages"))
 path_to_survey <- "C:/Users/gabriel.battcock/OneDrive - World Food Programme/General - MIMI Project/Countries/Sri Lanka/data/HIES_2019/HIES_2019/"
 
 module_list <- list.files(path = path_to_survey, pattern = NULL, all.files = FALSE,
-                   full.names = FALSE, recursive = FALSE,
-                   ignore.case = FALSE, include.dirs = FALSE, no.. = FALSE)
+                          full.names = FALSE, recursive = FALSE,
+                          ignore.case = FALSE, include.dirs = FALSE, no.. = FALSE)
 
 
 
@@ -37,7 +37,7 @@ for(file in modules){
 
 # read in fct
 sl_fct <- readxl::read_xlsx("C:/Users/gabriel.battcock/OneDrive - World Food Programme/General - MIMI Project/Countries/Sri Lanka/data/sri_lanka_food_matches.xlsx", 
-                  sheet = 1)
+                            sheet = 1)
 conversion_factor <- readxl::read_xlsx("C:/Users/gabriel.battcock/OneDrive - World Food Programme/General - MIMI Project/Countries/Sri Lanka/data/conversion_factor_sl.xlsx", sheet = 1)
 
 
@@ -82,107 +82,10 @@ SEC_3A_HEALTH <- create_hhid(SEC_3A_HEALTH)
 SEC_4_1_FOOD_EXP <- create_hhid(SEC_4_1_FOOD_EXP)
 
 
-## Explore the data 
-
-check_nas <- function(df){
-  df %>% summarise(across(
-    everything(),
-    ~sum(is.na(.))
-  )  )
-}
-
-check_nas(HH_expenditure_hh_Income)
-#no missing
-
-check_nas(SEC_1_DEMOGRAPHIC)
-# no missing datam for age, residence, relationship or sex for building the afe
-# some for education, activity level that we could fill if needed
-
-check_nas(SEC_2_SCHOOL_EDUCATION)
-# some educ varaibles - discuss with Vasia if we need to do anything this end
-
-check_nas(SEC_3A_HEALTH)
-
-check_nas(SEC_4_1_FOOD_EXP)# some missing quantities - look into further
-
-# missing quantities for some food items
-food_items_missing<- SEC_4_1_FOOD_EXP %>% 
-  group_by(code) %>% 
-  summarise(
-    nas = sum(is.na(quantity)),
-    percent = nas/n()
-  ) %>% 
-  arrange(desc(nas)) %>% 
-  
-  filter(percent != 0) %>% 
-  filter( !grepl("^11|^19", code))
-
-
-SEC_4_1_FOOD_EXP %>% 
-  group_by(code, hhid) %>% 
-  summarise(
-    nas = sum(is.na(quantity)),
-    percent = nas/n()
-  ) %>% 
-  arrange(desc(nas)) %>% 
-  filter(percent != 0)
-
-
-# convert all food items to grams
-
-
-converted_food <- SEC_4_1_FOOD_EXP %>% 
-  left_join(conversion_factor, by = "code") %>% 
-  mutate(conversion_to_grams = ifelse(is.na(conversion_to_grams), 1, conversion_to_grams),
-         quantity = quantity*conversion_to_grams) 
-
-
-# TO DO
 
 
 
 
-# imputation of missing values #######
-
-# create food group based on the survey collection
-converted_food$group <- floor(as.numeric(converted_food$code) / 100)
-
-
-# check assumption that quantity ~ value
-
-groups <- c(1:19)
-
-for(group_num in groups){
-  print(group_num)
-  
-  plot <- converted_food %>% 
-    filter(group == group_num) %>% 
-    ggplot(aes(value, quantity)) +
-    geom_point(alpha = 0.5) +
-    geom_smooth(formula = y~x+0) + # assume it goes through zero, zero value = zero quantity
-    ggtitle(paste("Group", group_num))
-  
-  print(plot)  
-}
-
-
-
-
-
-impute_quantity <- function(group_df) {
-  # Only fit model if we have enough non-missing data
-  if (sum(!is.na(group_df$quantity)) >= 0) {
-    model <- lm(quantity ~ value, data = group_df, na.action = na.exclude)
-    # Predict quantity where it is NA
-    group_df$quantity[is.na(group_df$quantity)] <- predict(model, newdata = group_df[is.na(group_df$quantity), ])
-  }
-  return(group_df)
-}
-
-
-
-imputed_food <- impute_quantity(converted_food) 
-check_nas(imputed_food)
 
 
 ################################################################################
@@ -241,7 +144,7 @@ breastfeeding <- demographics %>%
   filter(sex == 2 &
            age > 15 & age < 45 &
            u2 == 1
-         ) %>% 
+  ) %>% 
   slice(1)
 
 
@@ -273,7 +176,7 @@ rm(u2s)
 rm(breastfeeding)
 
 tee_calc <- demographics_others %>%
-
+  
   mutate(weight = ifelse(sex == 1, 65, 55)) %>% # Assumed average weight of men = 65kg
   # Assumed average weight of women = 55kg
   filter(age >= 2) %>%  # Remove under 2's as these have already been calculated above
@@ -422,17 +325,3 @@ HH_expenditure_hh_Income %>%
   geom_abline(intercept =  0, slope = 1, color = 'red')
 
 
-
-#-------------------------------------------------------------------------------
-# combine total consumption with AFEs
-
-food_afe <- imputed_food %>% 
-  select(hhid, code, quantity) %>% 
-  left_join(hh_afe, by= 'hhid') %>% 
-  mutate(quantity_ai = quantity/afe,
-         quantity_100g = quantity_ai/100)
-
-rm(imputed_food, converted_food)
-
-
-            
