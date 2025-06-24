@@ -38,7 +38,8 @@ for(file in modules){
 # read in fct
 sl_fct <- readxl::read_xlsx("C:/Users/gabriel.battcock/OneDrive - World Food Programme/General - MIMI Project/Countries/Sri Lanka/data/sri_lanka_food_matches.xlsx", 
                             sheet = 1)
-conversion_factor <- readxl::read_xlsx("C:/Users/gabriel.battcock/OneDrive - World Food Programme/General - MIMI Project/Countries/Sri Lanka/data/conversion_factor_sl.xlsx", sheet = 1)
+conversion_factor <- readxl::read_xlsx("C:/Users/gabriel.battcock/OneDrive - World Food Programme/General - MIMI Project/Countries/Sri Lanka/data/conversion_factor_sl.xlsx", 
+                                       sheet = 2)
 
 
 
@@ -325,3 +326,67 @@ HH_expenditure_hh_Income %>%
   geom_abline(intercept =  0, slope = 1, color = 'red')
 
 
+
+# create hh info variable ------------------------------------------------------
+
+# adm1, adm2 and sector
+hh_info <- HH_expenditure_hh_Income %>% 
+  left_join(demographics %>% select(hhid,month),by = 'hhid') %>% 
+  left_join(hh_afe, by = 'hhid') %>% 
+  mutate(
+    iso3 = "LKA",
+    zone = NA,
+    adm1 = as.character(floor(district/10)),
+    adm2 = as.character(district),
+    res = case_when(
+      sector == 1 ~ "Urban",
+      sector == 2 ~ "Rural",
+      sector == 3 ~ "Estate"
+    ),
+    ea = psu,
+    year = 2019, 
+    survey_wgt = finalweight) %>% 
+  
+    group_by(sector) %>% 
+      mutate(
+        per_capita_expenditure = hhexppm/hhsize, # NOTE: `hhsize` seems to be different that AFE... need to know why..
+        
+        res_quintile =
+               case_when(
+                 per_capita_expenditure<quantile(per_capita_expenditure,probs = seq(0,1,0.2), na.rm = TRUE)[[2]]~
+                   paste(res,"1"),
+                 per_capita_expenditure<quantile(per_capita_expenditure,probs = seq(0,1,0.2), na.rm = TRUE)[[3]]~
+                   paste(res,"2"),
+                 per_capita_expenditure<quantile(per_capita_expenditure,probs = seq(0,1,0.2), na.rm = TRUE)[[4]]~
+                   paste(res,"3"),
+                 per_capita_expenditure<quantile(per_capita_expenditure,probs = seq(0,1,0.2), na.rm = TRUE)[[5]]~
+                   paste0(res,"4"),
+                 per_capita_expenditure<=quantile(per_capita_expenditure,probs = seq(0,1,0.2), na.rm = TRUE)[[6]]~
+                   paste(res,"5"),
+               )) %>% 
+      ungroup() %>% 
+      mutate(sep_quintile =
+               case_when(
+                 per_capita_expenditure<quantile(per_capita_expenditure,probs = seq(0,1,0.2), na.rm = TRUE)[[2]]~
+                   "1",
+                 per_capita_expenditure<quantile(per_capita_expenditure,probs = seq(0,1,0.2), na.rm = TRUE)[[3]]~
+                   "2",
+                 per_capita_expenditure<quantile(per_capita_expenditure,probs = seq(0,1,0.2), na.rm = TRUE)[[4]]~
+                   "3",
+                 per_capita_expenditure<quantile(per_capita_expenditure,probs = seq(0,1,0.2), na.rm = TRUE)[[5]]~
+                   "4",
+                 per_capita_expenditure<=quantile(per_capita_expenditure,probs = seq(0,1,0.2), na.rm = TRUE)[[6]]~
+                   "5",
+               )) %>% 
+  rename(pc_expenditure = per_capita_expenditure) %>% 
+  select(hhid, iso3, zone,adm1,adm2,ea,res,sep_quintile,res_quintile, year, month, survey_wgt, pc_expenditure, afe)
+
+
+
+
+################################################################################
+path_to_save = "data/processed/"
+write_csv(hh_info, paste0(path_to_save, "hh_info.csv"    ))
+saveRDS(hh_info, paste0(path_to_save, "hh_info.RDS"    ))
+
+rm(list = ls())
