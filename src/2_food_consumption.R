@@ -10,6 +10,7 @@ if (any(installed_packages == FALSE)) {
 lapply(rq_packages, require, character.only = T)
 
 rm(list= c("rq_packages", "installed_packages"))
+readRenviron(".Renviron")
 
 
 ################################################################################
@@ -38,7 +39,8 @@ for(file in modules){
 # read in fct
 sl_fct <- readxl::read_xlsx("C:/Users/gabriel.battcock/OneDrive - World Food Programme/General - MIMI Project/Countries/Sri Lanka/data/sri_lanka_food_matches.xlsx", 
                   sheet = 1)
-conversion_factor <- readxl::read_xlsx("C:/Users/gabriel.battcock/OneDrive - World Food Programme/General - MIMI Project/Countries/Sri Lanka/data/conversion_factor_sl.xlsx", sheet = 1)
+conversion_factor <- readxl::read_xlsx("C:/Users/gabriel.battcock/OneDrive - World Food Programme/General - MIMI Project/Countries/Sri Lanka/data/conversion_factor_sl.xlsx", 
+                                       sheet = 2)
 
 
 
@@ -131,54 +133,72 @@ SEC_4_1_FOOD_EXP %>%
 # convert all food items to grams
 
 
-converted_food <- SEC_4_1_FOOD_EXP
-# %>% 
-  # left_join(conversion_factor, by = "code") 
-# %>% 
-  # mutate(conversion_to_grams = ifelse(is.na(conversion_to_grams), 1, conversion_to_grams),
-         # quantity = quantity*conversion_to_grams) 
+converted_food <- SEC_4_1_FOOD_EXP %>%
+  left_join(conversion_factor, by = "code")%>%
+  mutate(conversion_to_grams = ifelse(is.na(conversion_to_grams), 1, conversion_to_grams),
+  quantity = quantity*conversion_to_grams)
 
-# imputation of missing values #######
-
-# create food group based on the survey collection
 converted_food$group <- floor(as.numeric(converted_food$code) / 100)
 
+converted_food %>% 
+  filter(code == 1803)
 
-# check assumption that quantity ~ value
+# Define your imputation function
 
-groups <- c(1:19)
 
-for(group_num in groups){
-  print(group_num)
+
+
+
+impute_quantity <- function(group_df, missing_item, imputing_item) {
+  # Only fit model if enough complete cases
   
-  plot <- converted_food %>% 
-    filter(group == group_num) %>% 
-    ggplot(aes(value, quantity)) +
-    geom_point(alpha = 0.5) +
-    geom_smooth(formula = y~x+0) + # assume it goes through zero, zero value = zero quantity
-    ggtitle(paste("Group", group_num))
-  
-  print(plot)  
-}
+    imputing_df <- group_df %>% filter(code %in% imputing_item)
 
-
-
-
-
-impute_quantity <- function(group_df) {
-  # Only fit model if we have enough non-missing data
-  if (sum(!is.na(group_df$quantity)) >= 0) {
-    model <- lm(quantity ~ value, data = group_df, na.action = na.exclude)
-    # Predict quantity where it is NA
-    group_df$quantity[is.na(group_df$quantity)] <- predict(model, newdata = group_df[is.na(group_df$quantity), ])
-  }
+    model <- lm(quantity ~ value+0, data = imputing_df, na.action = na.exclude)
+    missing_idx <- which(group_df$code == missing_item)
+    group_df$quantity[missing_idx] <- predict(model, newdata = group_df[missing_idx, ])
   return(group_df)
 }
 
+#converting an outlier
+converted_food <- converted_food %>% 
+  mutate(value = ifelse(code == 217 & value>40000,5500,value))
+
+# Apply the imputation function by food item
+imputed_food <- converted_food
+
+imputed_food <- impute_quantity(imputed_food, 218,217)#purchased food 
+imputed_food <- impute_quantity(imputed_food, 220,217)#purchased food 
+imputed_food <- impute_quantity(imputed_food, 229,217)#purchased food
+# imputed_food <- impute_quantity(imputed_food, 435,)# jackfruit
+imputed_food <- impute_quantity(imputed_food, 439,c(401:434))#other vegetable 
+imputed_food <- impute_quantity(imputed_food, 459,c(447,448,449,450))# other leafy greens
+# imputed_food <- impute_quantity(imputed_food, 503,)# jackfruit
+imputed_food <- impute_quantity(imputed_food, 1304,c(1301,1302))# curd
+imputed_food <- impute_quantity(imputed_food, 1305,c(1301,1302))# yogurt
+imputed_food <- impute_quantity(imputed_food, 1319,c(1309,1310,1311))# other milk products
+imputed_food <- impute_quantity(imputed_food, 1504,1503)
+imputed_food <- impute_quantity(imputed_food, 1509,c(1501,1502,1503,1504))
+imputed_food <- impute_quantity(imputed_food, 1619,c(1601,1602,1603,1604,1605,1606,1607,1608,1609,1610,
+                                                         1611,1612,1613,1614,1615,1616))
+imputed_food <- impute_quantity(imputed_food, 1702,1703)
+imputed_food <- impute_quantity(imputed_food, 1706,1704)
+imputed_food <- impute_quantity(imputed_food, 1719,c(1710,1711,1712,1713,1714))
+imputed_food <- impute_quantity(imputed_food, 1803,1805)
+imputed_food <- impute_quantity(imputed_food, 1804,1805)
+imputed_food <- impute_quantity(imputed_food, 1819,1812)
 
 
-imputed_food <- impute_quantity(converted_food) 
-check_nas(imputed_food)
+imputed_food%>% 
+  filter(code == 1803)
+
+
+
+
+# check_nas(imputed_food)
+
+
+food_groups <- unique(imputed_food$group)
 
 
 
@@ -198,13 +218,18 @@ food_afe <- edible_food %>%
 
 # rm(imputed_food, converted_food)
 
+food_afe$group <- floor(as.numeric(food_afe$code) / 100)
+# 
+# for(group_num in c(seq(1:11),seq(13:19))){
+#   print(group_num)
+#   x <- food_afe %>% 
+#     filter(group == group_num & !is.na(quantity_ai) & group != 12) %>% 
+#     ggplot(aes(x = quantity_ai))+
+#     geom_histogram()+
+#     facet_wrap(~code)
+#   show(x)
+# }
 
-
-
-food_afe %>% 
-  filter(code == 308) %>% 
-  ggplot()+
-  geom_histogram(aes(x = quantity_ai))
 
 
 # filter outliers #############################################################
@@ -217,7 +242,7 @@ quant_cutpoints  <- food_afe %>%
   summarise(
     mean_log = mean(log_quantity_g, na.rm = T),
     sd_log = sd(log_quantity_g, na.rm = T)) %>% 
-  mutate(upper_cut = mean_log+2*sd_log) %>% 
+  mutate(upper_cut = mean_log+2.5*sd_log) %>% 
   select(code, upper_cut) %>% 
   ungroup()
 
@@ -252,6 +277,18 @@ food_afe <- food_afe %>%
   mutate(quantity_100g = quantity_ai/100) %>% 
   select(hhid, code, quantity_ai, quantity_100g)
 
+
+
+# for(group_num in c(seq(1:11),seq(13:19))){
+#   print(group_num)
+#   x <- food_afe %>% 
+#     filter(group == group_num & !is.na(quantity_ai) & group != 12) %>% 
+#     ggplot(aes(x = quantity_ai))+
+#     geom_histogram()+
+#     facet_wrap(~code)
+#   show(x)
+# }
+
 # ------------------------------------------------------------------------------
 # inital match to food i
 food_mn <- food_afe %>% 
@@ -279,6 +316,9 @@ hh_ai <- food_mn %>%
 hh_ai %>% 
   ggplot()+
   geom_histogram(aes(x = energy_kcal))
+
+################################################################################
+
 
 
 
