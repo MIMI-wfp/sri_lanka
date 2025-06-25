@@ -17,6 +17,7 @@ readRenviron(".Renviron")
 
 
 path_to_survey <- "C:/Users/gabriel.battcock/OneDrive - World Food Programme/General - MIMI Project/Countries/Sri Lanka/data/HIES_2019/HIES_2019/"
+path_to_data <- "data/processed/"
 
 module_list <- list.files(path = path_to_survey, pattern = NULL, all.files = FALSE,
                    full.names = FALSE, recursive = FALSE,
@@ -42,7 +43,7 @@ sl_fct <- readxl::read_xlsx("C:/Users/gabriel.battcock/OneDrive - World Food Pro
 conversion_factor <- readxl::read_xlsx("C:/Users/gabriel.battcock/OneDrive - World Food Programme/General - MIMI Project/Countries/Sri Lanka/data/conversion_factor_sl.xlsx", 
                                        sheet = 2)
 
-
+hh_info <- readRDS(paste0(path_to_data,"hh_info.RDS"))
 
 
 # Data exploration #############################################################
@@ -213,7 +214,7 @@ edible_food <- imputed_food %>%
 
 food_afe <- edible_food %>% 
   select(hhid, code, quantity) %>% 
-  left_join(hh_afe, by= 'hhid') %>% 
+  left_join(hh_info %>% select(hhid,afe) %>% group_by(hhid) %>% slice(1), by= 'hhid') %>% 
   mutate(quantity_ai = quantity/(7*afe)) 
 
 # rm(imputed_food, converted_food)
@@ -293,36 +294,50 @@ food_afe <- food_afe %>%
 # inital match to food i
 food_mn <- food_afe %>% 
   left_join(sl_fct %>% 
-              select(code, ends_with("kcal"),
+              select(code,item_name, ends_with("kcal"),
                      ends_with("_g"),
                      ends_with("_mcg"),
                      ends_with("_mg")), by= 'code') %>% 
   mutate(
 
     across(
-    -c(hhid, code,quantity_ai,quantity_100g),
+    -c(hhid, code, item_name,quantity_ai,quantity_100g),
     ~as.numeric(.x)*quantity_100g
   ))
+
 
 # household apparent intake
 
 hh_ai <- food_mn %>% 
   group_by(hhid) %>% 
   summarise(across(
-    -c(code,quantity_100g),
+    -c(code,item_name,quantity_100g),
     ~sum(.x, na.rm = TRUE)
-  ))
+  )) %>% 
+  select(-c("quantity_ai"))
+
+
 
 hh_ai %>% 
   ggplot()+
   geom_histogram(aes(x = energy_kcal))
 
+food_consumption <- food_afe %>% rename(quantity_g = quantity_ai, 
+                                       item_code = code)
+
 ################################################################################
 
+# food quantities
 
+write.csv(food_consumption, paste0(path_to_data, "food_consumption.csv"))
+write_rds(food_consumption, paste0(path_to_data, "food_consumption.RDS"))
 
+# base ai
 
+write.csv(hh_ai, paste0(path_to_data, "base_ai.csv"))
+write_rds(hh_ai, paste0(path_to_data, "base_ai.RDS"))
 
+rm(list = ls())
 
 
             
