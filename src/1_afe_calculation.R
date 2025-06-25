@@ -331,7 +331,8 @@ HH_expenditure_hh_Income %>%
 
 # adm1, adm2 and sector
 hh_info <- HH_expenditure_hh_Income %>% 
-  left_join(demographics %>% select(hhid,month),by = 'hhid') %>% 
+  left_join(demographics %>% select(hhid,month) %>% 
+              group_by(hhid) %>%  slice(1),by = 'hhid') %>% 
   left_join(hh_afe, by = 'hhid') %>% 
   mutate(
     iso3 = "LKA",
@@ -389,4 +390,4 @@ path_to_save = "data/processed/"
 write_csv(hh_info, paste0(path_to_save, "hh_info.csv"    ))
 saveRDS(hh_info, paste0(path_to_save, "hh_info.RDS"    ))
 
-rm(list = ls())
+# rm(list = ls())
