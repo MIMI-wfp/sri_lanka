@@ -28,7 +28,10 @@ core_packages <- c(
   "haven",         # Read SPSS, Stata, SAS files
   "lubridate",     # Date/time manipulation
   "stringr",       # String manipulation
-  "forcats"        # Factor manipulation
+  "forcats",        # Factor manipulation
+  "getPass",
+  "DBI",
+  "RMySQL"
 )
 
 # Statistical analysis packages
@@ -52,7 +55,8 @@ viz_packages <- c(
   "shiny",         # Web applications
   "ggthemes",      # Additional ggplot2 themes
   "viridis",       # Color palettes
-  "RColorBrewer"   # Color palettes
+  "RColorBrewer",   # Color palettes
+  "wesanderson"
 )
 
 # Utility packages

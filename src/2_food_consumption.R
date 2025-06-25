@@ -292,6 +292,9 @@ food_afe <- food_afe %>%
 
 # ------------------------------------------------------------------------------
 # inital match to food i
+
+
+
 food_mn <- food_afe %>% 
   left_join(sl_fct %>% 
               select(code,item_name, ends_with("kcal"),
@@ -305,6 +308,8 @@ food_mn <- food_afe %>%
     ~as.numeric(.x)*quantity_100g
   ))
 
+
+sens_matching <- food_mn
 
 # household apparent intake
 
@@ -337,7 +342,6 @@ write_rds(food_consumption, paste0(path_to_data, "food_consumption.RDS"))
 write.csv(hh_ai, paste0(path_to_data, "base_ai.csv"))
 write_rds(hh_ai, paste0(path_to_data, "base_ai.RDS"))
 
+write.csv(sens_matching, paste0(path_to_data,"sens_matching.csv"))
+
 rm(list = ls())
-
-
-            

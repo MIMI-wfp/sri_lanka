@@ -133,33 +133,32 @@ lka_adm1 <- lka_adm1 %>%
 
 # try making a map using the HH data
 # adm1 
-test_sp_adm1 <- HH_expenditure_hh_Income %>% 
-  group_by(district) %>% 
-  left_join(adm1_match, by = "district") %>% 
-  group_by(adm1) %>% 
-  summarise(mean_foodexp = mean((hhfoodexppm/hhsize))) %>% 
+adm1_sp <- adm1_match %>% 
+
   left_join(lka_adm1, by = c("adm1" = "Code")) %>% 
+  mutate(adm1 = floor(district/10)) %>% 
+  group_by(adm1) %>% 
+  slice(1) %>% 
+  select(adm1, geometry) %>% 
+  mutate(adm1 = as.character(adm1)) %>% 
   st_as_sf()
 
-
-tm_shape(test_sp_adm1) +
-  tm_fill(col = 'mean_foodexp') +
-  tm_layout(frame =F)+
-  tm_borders(col= 'black', lwd = 2.5)
 
 
 # adm 2
 
-test_sp_adm2 <- HH_expenditure_hh_Income %>% 
-  group_by(district) %>% 
-  left_join(adm2_match, by = "district") %>% 
-  group_by(adm2) %>% 
-  summarise(mean_foodexp = mean((hhfoodexppm/hhsize))) %>% 
+adm2_sp <- adm2_match %>% 
+  
   left_join(lka_adm2, by = c("adm2" = "Code")) %>% 
+  select(-adm2, -Name) %>% 
+  rename(adm2 = district) %>% 
+  mutate(adm2 = as.character(adm2)) %>% 
   st_as_sf()
 
 
-tm_shape(test_sp_adm2) +
-  tm_fill(col = 'mean_foodexp') +
-  tm_layout(frame =F)+
-  tm_borders(col= 'black', lwd = 2.5)
+
+################################################################################
+rm(lka_adm1,lka_adm2,adm1_match,adm2_match)
+
+
+
