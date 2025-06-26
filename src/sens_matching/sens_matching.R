@@ -5,10 +5,14 @@ hh_info <- read_rds("data/processed/hh_info.RDS")
 base_ai <- read_rds("data/processed/base_ai.RDS")
 
 # ------------------------------------------------------------------------------
-
+set.seed(123)  # Use any number you prefer
+random_hhids <- sample(hh_info$hhid, size = 2000)
+  
 
 data.df <- read.csv(here::here("data/processed", "sens_matching.csv"))
 names(data.df)
+data.df <- data.df %>% filter(hhid %in% random_hhids)
+
 #food_list <- readxl::read_excel(here::here( "NSSO_INDB_20241023.xlsx"))
 
 
@@ -41,10 +45,11 @@ food_list <- data.df %>% filter(!is.na(quantity_100g)) %>%
 # excluding one food item for the variables selected
 
 i = 1
+
 j=1
 test <- list()  
 # Creating an empty dataframe
-wilcox_test <- as.data.frame(matrix( ncol = 4))
+wilcox_test <- as.data.frame(matrix( ncol = 1))
 
 
 # Adding the baseline (no food removed)
@@ -96,14 +101,14 @@ for(i in 1:nrow(food_list)){
 
 # Saving the output into spreadsheet
 writexl::write_xlsx(test, 
-                    here::here("inter-output", paste0("sensitivity_outputb_", Sys.Date(), ".xlsx")))
+                    here::here("data/inter-output", paste0("sensitivity_outputb_", Sys.Date(), ".xlsx")))
 
 names(wilcox_test)[1:4] <- names(broom::tidy(x))
 #names(t_test)[11:12] <- c("test_food","test_nutrient" )
 
 
 # Saving results form loop
-write.csv(wilcox_test, here::here( "inter-output", paste0("wilcox_test_food_nutrient_", Sys.Date(), ".csv")))
+write.csv(wilcox_test, here::here( "data/inter-output", paste0("wilcox_test_food_nutrient_", Sys.Date(), ".csv")))
 
 p.values <- wilcox_test %>% dplyr::filter(!is.na(statistic)) %>% 
   select(p.value, test_food, test_nutrient) %>% 
@@ -111,7 +116,7 @@ p.values <- wilcox_test %>% dplyr::filter(!is.na(statistic)) %>%
                      values_from = "p.value") 
 
 # Saving results p.values per nutrient form loop
-write.csv(p.values, here::here( "inter-output", paste0("p.values_wilcox_food_nutrient_",
+write.csv(p.values, here::here( "data/inter-output", paste0("p.values_wilcox_food_nutrient_",
                                                        Sys.Date(), ".csv")))
 
 ## Graph (2) ----------
@@ -120,7 +125,7 @@ names(test[[1]])
 j = 3
 names(test[[1]])[j]
 
-df <- as.data.frame(matrix( ncol = 4))
+df <- as.data.frame(matrix( ncol = 2))
 
 for(i in 1:length(test)){
   
