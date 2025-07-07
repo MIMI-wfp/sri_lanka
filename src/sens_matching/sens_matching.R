@@ -122,7 +122,7 @@ write.csv(p.values, here::here( "data/inter-output", paste0("p.values_wilcox_foo
 ## Graph (2) ----------
 
 names(test[[1]])
-j = 3
+j = 2
 names(test[[1]])[j]
 
 df <- as.data.frame(matrix( ncol = 2))
@@ -153,3 +153,6 @@ df %>% mutate(p.value = ifelse(scenario %in% p.items, "YES", "NO")) %>%
   labs(y = names(test[[1]])[j]) +
   #  theme(axis.text = element_text(angle = 90)) 
   coord_flip() 
+
+df %>% 
+  arrange(Median)

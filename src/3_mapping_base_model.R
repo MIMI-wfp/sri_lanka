@@ -4,7 +4,7 @@ source("src/setup_environment.R")
 hh_info <- read_rds("data/processed/hh_info.RDS")
 base_ai <- read_rds("data/processed/base_ai.RDS")
 
-Sys.getenv()
+# Sys.getenv()
 
 # connect to database
 
@@ -20,6 +20,7 @@ con <- DBI::dbConnect(RMySQL::MySQL(),
 # collect information from database
 
 h_ar <- DBI::dbReadTable(con, "h_ar")
+
 # disconnect
 DBI::dbDisconnect(con)
 
@@ -30,7 +31,7 @@ calc_inad <- function(h_ar, comparison){return(ifelse(comparison<h_ar,1,0))}
 plot_sf_choropleth <- function(
     merged_sf,
     outline_sf,
-    fill_var       = "zn_mg_prop",
+    fill_var       = "",
     palette        = "Zissou1",
     n_pal          = 100,
     limits         = c(0, 100),
@@ -95,7 +96,7 @@ adm1_average <- survey_object %>%
   srvyr::group_by(adm1) %>% 
   srvyr::summarise(
     across(
-      ends_with(c("mg","g", "mcg")),
+      ends_with(c("kcal","mg","g", "mcg")),
       ~srvyr::survey_quantile(.x, quantiles = 0.5)
     ),
     across(
@@ -120,13 +121,12 @@ adm1_sp <- adm1_average %>%
 plot_sf_choropleth(
   merged_sf  = adm1_sp,
   outline_sf = adm1_sp,
-  fill_var   = "folate_inad",
+  fill_var   = "zn_inad",
   palette    = "Zissou1",
   limits     = c(0, 100),
-  fill_name  = "Zinc",
-  title      = "Zinc Proportion by Administrative Area",
+  fill_name  = "Folate",
+  title      = "Folate Proportion by Administrative Area",
   caption    = "Household Income and Expenditure Survey 2019"
 )
-
 
 

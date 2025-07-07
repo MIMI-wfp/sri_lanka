@@ -68,13 +68,13 @@ SEC_4_1_FOOD_EXP %>%
 # create a hh id with district, sector, psu, snumber and hhno
 
 HH_expenditure_hh_Income %>% 
-  mutate(hhid = paste0(district,sector,psu,snumber,hhno)) %>% 
+  mutate(hhid = paste0(psu,snumber,hhno)) %>% 
   distinct(hhid)
 
 # creates unque hhid 
 
 create_hhid <- function(df){
-  df <- df %>%  mutate(hhid = paste0(district,sector,psu,snumber,hhno))
+  df <- df %>%  mutate(hhid = paste0(psu,snumber,hhno))
   return(df)
 }
 
@@ -135,7 +135,7 @@ SEC_4_1_FOOD_EXP %>%
 
 
 converted_food <- SEC_4_1_FOOD_EXP %>%
-  left_join(conversion_factor, by = "code")%>%
+  left_join(conversion_factor, by = "code") %>%
   mutate(conversion_to_grams = ifelse(is.na(conversion_to_grams), 1, conversion_to_grams),
   quantity = quantity*conversion_to_grams)
 
@@ -191,7 +191,7 @@ imputed_food <- impute_quantity(imputed_food, 1819,1812)
 
 
 imputed_food%>% 
-  filter(code == 1803)
+  filter(is.na(quantity))
 
 
 
@@ -343,5 +343,6 @@ write.csv(hh_ai, paste0(path_to_data, "base_ai.csv"))
 write_rds(hh_ai, paste0(path_to_data, "base_ai.RDS"))
 
 write.csv(sens_matching, paste0(path_to_data,"sens_matching.csv"))
+# 
+# rm(list = ls())
 
-rm(list = ls())

@@ -66,13 +66,13 @@ SEC_4_1_FOOD_EXP %>%
 # create a hh id with district, sector, psu, snumber and hhno
 
 HH_expenditure_hh_Income %>% 
-  mutate(hhid = paste0(district,sector,psu,snumber,hhno)) %>% 
+  mutate(hhid = paste0(psu,snumber,hhno)) %>% 
   distinct(hhid)
 
 # creates unque hhid 
 
 create_hhid <- function(df){
-  df <- df %>%  mutate(hhid = paste0(district,sector,psu,snumber,hhno))
+  df <- df %>%  mutate(hhid = paste0(psu,snumber,hhno))
   return(df)
 }
 

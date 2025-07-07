@@ -126,7 +126,7 @@ adm2_match <- HH_expenditure_hh_Income %>%
 # Shpaefile from WFP -----------------------------------------------------------
 
 lka_adm2 <- get_shapefile(adm0_code = 231, level = 'adm2')
-
+lka_adm1 <- get_shapefile(adm0_code = 231, level = 'adm1')
 lka_adm1 <- lka_adm1 %>% 
   mutate(country = "Sri Lanka")
 

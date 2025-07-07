@@ -11,10 +11,7 @@
 *.png
 *.xlsx
 *.shp
-*.RDS*
-.rds
-*.rds
-data/processed/hh_info.RDS
+*.RDS
 
 
 data/
