@@ -20,8 +20,8 @@ path_to_survey <- "C:/Users/gabriel.battcock/OneDrive - World Food Programme/Gen
 path_to_data <- "data/processed/"
 
 module_list <- list.files(path = path_to_survey, pattern = NULL, all.files = FALSE,
-                   full.names = FALSE, recursive = FALSE,
-                   ignore.case = FALSE, include.dirs = FALSE, no.. = FALSE)
+                          full.names = FALSE, recursive = FALSE,
+                          ignore.case = FALSE, include.dirs = FALSE, no.. = FALSE)
 
 
 
@@ -39,7 +39,7 @@ for(file in modules){
 
 # read in fct
 sl_fct <- readxl::read_xlsx("C:/Users/gabriel.battcock/OneDrive - World Food Programme/General - MIMI Project/Countries/Sri Lanka/data/sri_lanka_food_matches.xlsx", 
-                  sheet = 1)
+                            sheet = 1)
 conversion_factor <- readxl::read_xlsx("C:/Users/gabriel.battcock/OneDrive - World Food Programme/General - MIMI Project/Countries/Sri Lanka/data/conversion_factor_sl.xlsx", 
                                        sheet = 2)
 
@@ -68,13 +68,13 @@ SEC_4_1_FOOD_EXP %>%
 # create a hh id with district, sector, psu, snumber and hhno
 
 HH_expenditure_hh_Income %>% 
-  mutate(hhid = paste0(district,sector,psu,snumber,hhno)) %>% 
+  mutate(hhid = paste0(psu,snumber,hhno)) %>% 
   distinct(hhid)
 
 # creates unque hhid 
 
 create_hhid <- function(df){
-  df <- df %>%  mutate(hhid = paste0(district,sector,psu,snumber,hhno))
+  df <- df %>%  mutate(hhid = paste0(psu,snumber,hhno))
   return(df)
 }
 
@@ -135,9 +135,9 @@ SEC_4_1_FOOD_EXP %>%
 
 
 converted_food <- SEC_4_1_FOOD_EXP %>%
-  left_join(conversion_factor, by = "code")%>%
+  left_join(conversion_factor, by = "code") %>%
   mutate(conversion_to_grams = ifelse(is.na(conversion_to_grams), 1, conversion_to_grams),
-  quantity = quantity*conversion_to_grams)
+         quantity = quantity*conversion_to_grams)
 
 converted_food$group <- floor(as.numeric(converted_food$code) / 100)
 
@@ -153,11 +153,11 @@ converted_food %>%
 impute_quantity <- function(group_df, missing_item, imputing_item) {
   # Only fit model if enough complete cases
   
-    imputing_df <- group_df %>% filter(code %in% imputing_item)
-
-    model <- lm(quantity ~ value+0, data = imputing_df, na.action = na.exclude)
-    missing_idx <- which(group_df$code == missing_item)
-    group_df$quantity[missing_idx] <- predict(model, newdata = group_df[missing_idx, ])
+  imputing_df <- group_df %>% filter(code %in% imputing_item)
+  
+  model <- lm(quantity ~ value+0, data = imputing_df, na.action = na.exclude)
+  missing_idx <- which(group_df$code == missing_item)
+  group_df$quantity[missing_idx] <- predict(model, newdata = group_df[missing_idx, ])
   return(group_df)
 }
 
@@ -181,7 +181,7 @@ imputed_food <- impute_quantity(imputed_food, 1319,c(1309,1310,1311))# other mil
 imputed_food <- impute_quantity(imputed_food, 1504,1503)
 imputed_food <- impute_quantity(imputed_food, 1509,c(1501,1502,1503,1504))
 imputed_food <- impute_quantity(imputed_food, 1619,c(1601,1602,1603,1604,1605,1606,1607,1608,1609,1610,
-                                                         1611,1612,1613,1614,1615,1616))
+                                                     1611,1612,1613,1614,1615,1616))
 imputed_food <- impute_quantity(imputed_food, 1702,1703)
 imputed_food <- impute_quantity(imputed_food, 1706,1704)
 imputed_food <- impute_quantity(imputed_food, 1719,c(1710,1711,1712,1713,1714))
@@ -191,7 +191,7 @@ imputed_food <- impute_quantity(imputed_food, 1819,1812)
 
 
 imputed_food%>% 
-  filter(code == 1803)
+  filter(is.na(quantity))
 
 
 
@@ -259,7 +259,7 @@ food_afe <- food_afe %>%
 food_afe <- food_afe %>% 
   group_by(code) %>% 
   mutate(quantity_ai = ifelse(is.na(quantity_ai),
-                                             median(quantity_ai, na.rm =T),
+                              median(quantity_ai, na.rm =T),
                               quantity_ai)) %>% 
   ungroup()
 
@@ -272,7 +272,7 @@ food_afe %>%
   filter(code == 105) %>% 
   ggplot()+
   geom_histogram(aes(x = quantity_ai))
-  
+
 
 food_afe <- food_afe %>% 
   mutate(quantity_100g = quantity_ai/100) %>% 
@@ -302,11 +302,11 @@ food_mn <- food_afe %>%
                      ends_with("_mcg"),
                      ends_with("_mg")), by= 'code') %>% 
   mutate(
-
+    
     across(
-    -c(hhid, code, item_name,quantity_ai,quantity_100g),
-    ~as.numeric(.x)*quantity_100g
-  ))
+      -c(hhid, code, item_name,quantity_ai,quantity_100g),
+      ~as.numeric(.x)*quantity_100g
+    ))
 
 
 sens_matching <- food_mn
@@ -328,7 +328,7 @@ hh_ai %>%
   geom_histogram(aes(x = energy_kcal))
 
 food_consumption <- food_afe %>% rename(quantity_g = quantity_ai, 
-                                       item_code = code)
+                                        item_code = code)
 
 ################################################################################
 
@@ -343,5 +343,5 @@ write.csv(hh_ai, paste0(path_to_data, "base_ai.csv"))
 write_rds(hh_ai, paste0(path_to_data, "base_ai.RDS"))
 
 write.csv(sens_matching, paste0(path_to_data,"sens_matching.csv"))
-
-rm(list = ls())
+# 
+# rm(list = ls())
