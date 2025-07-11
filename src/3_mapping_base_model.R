@@ -11,20 +11,23 @@ base_ai <- read_rds("data/processed/base_ai.RDS")
 
 # connect to database
 
+
+con <- DBI::dbConnect(RMySQL::MySQL(),
+                 dbname = Sys.getenv("DB_NAME"),
+                 host = "127.0.0.1",
+                 port = 3306,
+                 user = Sys.getenv("DB_USER"),
+                 password =  Sys.getenv("DB_PASSWORD"))
+
+
+# collect information from database
+
+h_ar <- DBI::dbReadTable(con, "h_ar")
 # 
-# con <- DBI::dbConnect(RMySQL::MySQL(),
-#                  dbname = Sys.getenv("DB_NAME"),
-#                  host = "127.0.0.1",
-#                  port = 3306,
-#                  user = Sys.getenv("DB_USER"),
-#                  password =  Sys.getenv("DB_PASSWORD"))
-# 
-# 
-# # collect information from database
-# 
-# h_ar <- DBI::dbReadTable(con, "h_ar")
-# # # disconnect
-# DBI::dbDisconnect(con)
+
+
+# # disconnect
+DBI::dbDisconnect(con)
 
 ################################################################################
 
@@ -33,7 +36,7 @@ calc_inad <- function(h_ar, comparison){return(ifelse(comparison<h_ar,1,0))}
 plot_sf_choropleth <- function(
     merged_sf,
     outline_sf,
-    fill_var       = "zn_mg_prop",
+    fill_var,
     palette        = "Zissou1",
     n_pal          = 100,
     limits         = c(0, 100),
@@ -150,133 +153,91 @@ adm1_sp <- adm1_average %>%
 
 
 
+create_and_save_plots <- function(save_plots = TRUE, output_dir = "outputs/plots", 
+                                  width = 10, height = 8, dpi = 300) {
+  
+  # Create output directory if it doesn't exist
+  if (save_plots && !dir.exists(output_dir)) {
+    dir.create(output_dir, recursive = TRUE)
+  }
+  
+  # Define micronutrient data
+  micronutrients <- data.frame(
+    var_name = c("zn_inad", "fe_inad", "vita_inad", "vitb12_inad", "folate_inad"),
+    title = c("Zinc", "Iron", "Vitamin A", "Vitamin B12", "Folate"),
+    plot_name = c("zn", "fe", "va", "b12", "fo"),
+    stringsAsFactors = FALSE
+  )
+  
+  # Define administrative levels
+  admin_levels <- data.frame(
+    sf_data = c("adm1_sp", "adm2_sp"),
+    level_name = c("adm1", "adm2"),
+    stringsAsFactors = FALSE
+  )
+  
+  # Store all plots in a list
+  all_plots <- list()
+  
+  # Loop through admin levels and micronutrients
+  for (i in 1:nrow(admin_levels)) {
+    for (j in 1:nrow(micronutrients)) {
+      
+      # Get current parameters
+      current_sf <- get(admin_levels$sf_data[i])
+      current_level <- admin_levels$level_name[i]
+      current_var <- micronutrients$var_name[j]
+      current_title <- micronutrients$title[j]
+      current_plot_name <- micronutrients$plot_name[j]
+      
+      # Create plot name
+      plot_name <- paste0(current_level, "_", current_plot_name)
+      
+      # Create the plot
+      current_plot <- plot_sf_choropleth(
+        merged_sf  = current_sf,
+        outline_sf = current_sf,
+        fill_var   = current_var,
+        palette    = "Zissou1",
+        limits     = c(0, 100),
+        fill_name  = "Risk of inadequate micronutrient intake (%)",
+        title      = current_title,
+        caption    = "Household Income and Expenditure Survey 2019"
+      )
+      
+      # Store plot in list
+      all_plots[[plot_name]] <- current_plot
+      
+      # Save plot if requested
+      if (save_plots) {
+        filename <- file.path(output_dir, paste0(plot_name, ".png"))
+        ggsave(
+          filename = filename,
+          plot = current_plot,
+          width = width,
+          height = height,
+          dpi = dpi,
+          bg = "white"
+        )
+        cat("Saved:", filename, "\n")
+      }
+      
+      # Also assign to global environment (to maintain your original variable names)
+      assign(plot_name, current_plot, envir = .GlobalEnv)
+    }
+  }
+  
+  # Return the list of plots
+  return(all_plots)
+}
 
-# make some maps
+# Usage examples:
 
-## ADM1 #####
-
-adm1_zn <- plot_sf_choropleth(
-  merged_sf  = adm1_sp,
-  outline_sf = adm1_sp,
-  fill_var   = "zn_inad",
-  palette    = "Zissou1",
-  limits     = c(0, 100),
-  fill_name  = "Risk of inadequate micronutrient intake (%)",
-  title      = "Zinc",
-  caption    = "Household Income and Expenditure Survey 2019"
-)
-
-# Example usage
-adm1_fe <- plot_sf_choropleth(
-  merged_sf  = adm1_sp,
-  outline_sf = adm1_sp,
-  fill_var   = "fe_inad",
-  palette    = "Zissou1",
-  limits     = c(0, 100),
-  fill_name  = "Risk of inadequate micronutrient intake (%)",
-  title      = "Iron",
-  caption    = "Household Income and Expenditure Survey 2019"
-)
-
-
-adm1_va <- plot_sf_choropleth(
-  merged_sf  = adm1_sp,
-  outline_sf = adm1_sp,
-  fill_var   = "vita_inad",
-  palette    = "Zissou1",
-  limits     = c(0, 100),
-  fill_name  = "Risk of inadequate micronutrient intake (%)",
-  title      = "Vitamin A",
-  caption    = "Household Income and Expenditure Survey 2019"
-)
-
-# Example usage
-adm1_b12 <- plot_sf_choropleth(
-  merged_sf  = adm1_sp,
-  outline_sf = adm1_sp,
-  fill_var   = "vitb12_inad",
-  palette    = "Zissou1",
-  limits     = c(0, 100),
-  fill_name  = "Risk of inadequate micronutrient intake (%)",
-  title      = "Vitamin B12",
-  caption    = "Household Income and Expenditure Survey 2019"
-)
-
-# Example usage
-adm1_fo <- plot_sf_choropleth(
-  merged_sf  = adm1_sp,
-  outline_sf = adm1_sp,
-  fill_var   = "folate_inad",
-  palette    = "Zissou1",
-  limits     = c(0, 100),
-  fill_name  = "Risk of inadequate micronutrient intake (%)",
-  title      = "Folate",
-  caption    = "Household Income and Expenditure Survey 2019"
-)
-
-
-
-
-
-plot_sf_choropleth(
-  merged_sf  = adm2_sp,
-  outline_sf = adm2_sp,
-  fill_var   = "zn_inad",
-  palette    = "Zissou1",
-  limits     = c(0, 100),
-  fill_name  = "Risk of inadequate micronutrient intake (%)",
-  title      = "Zinc",
-  caption    = "Household Income and Expenditure Survey 2019"
-)
-
-# Example usage
-plot_sf_choropleth(
-  merged_sf  = adm2_sp,
-  outline_sf = adm2_sp,
-  fill_var   = "fe_inad",
-  palette    = "Zissou1",
-  limits     = c(0, 100),
-  fill_name  = "Risk of inadequate micronutrient intake (%)",
-  title      = "Iron",
-  caption    = "Household Income and Expenditure Survey 2019"
-)
+# 1. Create and save all plots (default behavior)
+all_plots <- create_and_save_plots()
 
 
-plot_sf_choropleth(
-  merged_sf  = adm2_sp,
-  outline_sf = adm2_sp,
-  fill_var   = "vita_inad",
-  palette    = "Zissou1",
-  limits     = c(0, 100),
-  fill_name  = "Risk of inadequate micronutrient intake (%)",
-  title      = "Vitamin A",
-  caption    = "Household Income and Expenditure Survey 2019"
-)
-
-# Example usage
-plot_sf_choropleth(
-  merged_sf  = adm2_sp,
-  outline_sf = adm2_sp,
-  fill_var   = "vitb12_inad",
-  palette    = "Zissou1",
-  limits     = c(0, 100),
-  fill_name  = "Risk of inadequate micronutrient intake (%)",
-  title      = "Vitamin B12",
-  caption    = "Household Income and Expenditure Survey 2019"
-)
-
-# Example usage
-plot_sf_choropleth(
-  merged_sf  = adm2_sp,
-  outline_sf = adm2_sp,
-  fill_var   = "folate_inad",
-  palette    = "Zissou1",
-  limits     = c(0, 100),
-  fill_name  = "Risk of inadequate micronutrient intake (%)",
-  title      = "Folate",
-  caption    = "Household Income and Expenditure Survey 2019"
-)
-
-
-
+# 4. Access individual plots from the returned list
+all_plots$adm1_zn  # ADM1 zinc plot
+all_plots$adm2_fe  # ADM2 iron plot
 

@@ -45,6 +45,25 @@ conversion_factor <- readxl::read_xlsx("C:/Users/gabriel.battcock/OneDrive - Wor
 
 hh_info <- readRDS(paste0(path_to_data,"hh_info.RDS"))
 
+# 
+con <- DBI::dbConnect(RMySQL::MySQL(),
+                 dbname = Sys.getenv("DB_NAME"),
+                 host = "127.0.0.1",
+                 port = 3306,
+                 user = Sys.getenv("DB_USER"),
+                 password =  Sys.getenv("DB_PASSWORD"))
+
+
+# collect information from database
+
+h_ar <- DBI::dbReadTable(con, "h_ar")
+
+# DBI::dbReadTable(con, "ML_targets")
+# # disconnect
+DBI::dbDisconnect(con)
+
+
+
 
 # Data exploration #############################################################
 # 
@@ -330,6 +349,42 @@ hh_ai %>%
 food_consumption <- food_afe %>% rename(quantity_g = quantity_ai, 
                                         item_code = code)
 
+
+## targets for ML
+
+calc_nar <- function(h_ar, comparison){return(ifelse(comparison<h_ar,comparison/h_ar,1))}
+
+
+
+sl_ml_targets <- base_ai %>% 
+  select(hhid,vita_rae_mcg,folate_mcg,vitb12_mcg,
+         fe_mg,zn_mg) %>% 
+  mutate(
+    vita_nar = calc_nar(h_ar$vita_rae_mcg, vita_rae_mcg),
+    fol_nar = calc_nar(h_ar$folate_mcg,folate_mcg),
+    vitb12_nar = calc_nar(h_ar$vitb12_mcg, vitb12_mcg),
+    fe_nar = calc_nar(h_ar$fe_mg,fe_mg),
+    zn_nar = calc_nar(h_ar$zn_mg,zn_mg),
+    overall_mar = (vita_nar+fol_nar+vitb12_nar+fe_nar+zn_nar)/5,
+    va_ref = 490,
+    fol_ref = 250,
+    vb12_ref = 2,
+    fe_ref = 22.4,
+    zn_ref = 10.2,
+    survey = "lka_hies19",
+    iso3 = "LKA",
+  ) %>% 
+  # rename(va_ai = vita_rae_mcg,
+  #        fol_ai = folate_mcg,
+  #        vb12_ai = vitb12_mcg,
+  #        fe_ai = fe_mg, 
+  #        zn_ai = zn_mg) %>% 
+  select(iso3,survey,hhid,vita_rae_mcg,folate_mcg,vitb12_mcg,
+         fe_mg,zn_mg,
+         overall_mar) 
+  
+
+
 ################################################################################
 
 # food quantities
@@ -343,5 +398,7 @@ write.csv(hh_ai, paste0(path_to_data, "base_ai.csv"))
 write_rds(hh_ai, paste0(path_to_data, "base_ai.RDS"))
 
 write.csv(sens_matching, paste0(path_to_data,"sens_matching.csv"))
+
+write_csv(sl_ml_targets,paste0(path_to_data,"sl_ml_targets_", Sys.Date(),".csv"))
 # 
 # rm(list = ls())
