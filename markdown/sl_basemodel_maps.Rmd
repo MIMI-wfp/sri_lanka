@@ -1,0 +1,142 @@
+---
+  title: "Sri Lanka: Micronutrient Inadequacy Maps"
+  output: html_document
+  params:
+  year: 2019
+---
+  
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(tidyverse)
+library(srvyr)
+library(survey)
+library(sf)
+library(wesanderson)
+```
+
+## 1. Load Data
+
+```{r load-data}
+# source("src/0_shapefile_clean.R")
+devtools::source_url("https://raw.githubusercontent.com/MIMI-wfp/MIMI-R-functions/refs/heads/main/iron_full_probability/iron_inad_prev.R")
+
+hh_info <- read_rds("../data/processed/hh_info.RDS")
+base_ai <- read_rds("../data/processed/base_ai.RDS")
+
+# connect to h_ar (via DB or local cache)
+con <- DBI::dbConnect(...)
+h_ar <- DBI::dbReadTable(con, "h_ar")
+DBI::dbDisconnect(con)
+
+# For now, assume h_ar is already loaded or read from local:
+h_ar <- read_rds("data/processed/h_ar.RDS")
+```
+
+## 2. Helper Functions
+
+```{r helper-functions}
+calc_inad <- function(h_ar, comparison){ return(ifelse(comparison < h_ar, 1, 0)) }
+
+plot_sf_choropleth <- function(merged_sf, outline_sf, fill_var, title) {
+  ggplot() +
+    geom_sf(data = merged_sf, aes(fill = .data[[fill_var]]), color = NA) +
+    geom_sf(data = outline_sf, fill = NA, color = "black", size = 1) +
+    scale_fill_gradientn(
+      colours = wesanderson::wes_palette("Zissou1", n = 100, type = "continuous"),
+      limits = c(0, 100),
+      name = "Risk of inadequate micronutrient intake (%)"
+    ) +
+    labs(
+      title = title,
+      caption = paste("Household Income and Expenditure Survey", params$year)
+    ) +
+    theme_minimal() +
+    theme(
+      plot.title = element_text(hjust = 0.5),
+      axis.text  = element_blank(),
+      axis.ticks = element_blank(),
+      legend.position = "bottom"
+    )
+}
+```
+
+## 3. Create Survey Object
+
+```{r survey-object}
+df <- hh_info %>% left_join(base_ai, by = "hhid")
+
+survey_object <- df %>%
+  mutate(
+    vita_inad   = calc_inad(h_ar$vita_rae_mcg[1], vita_rae_mcg),
+    zn_inad     = calc_inad(h_ar$zn_mg[1], zn_mg),
+    folate_inad = calc_inad(h_ar$folate_mcg[1], folate_mcg),
+    thia_inad   = calc_inad(h_ar$thia_mg[1], thia_mg),
+    vitb12_inad = calc_inad(h_ar$vitb12_mcg[1], vitb12_mcg)
+  ) %>%
+  as_survey_design(ids = ea, weights = survey_wgt, strata = res)
+```
+
+## 4. ADM1 Summary and Maps
+
+### 4.1 Summary
+
+```{r adm1-summary}
+adm1_average <- survey_object %>%
+  group_by(adm1) %>%
+  summarise(
+    across(ends_with(c("mg", "g", "mcg")), ~survey_quantile(.x, quantiles = 0.5)),
+    across(ends_with("inad"), ~survey_mean(.x == 1, proportion = TRUE)*100)
+  ) %>%
+  left_join(fe_full_prob(df, adm1, survey_wgt) %>%
+              rename(fe_inad = fe_mg_prop),
+            by = c("adm1" = "subpopulation"))
+
+adm1_sp <- adm1_average %>%
+  left_join(adm1_shapefile, by = "adm1") %>%
+  st_as_sf()
+```
+
+### 4.2 Plots
+
+```{r adm1-maps, fig.width=8, fig.height=6}
+plot_sf_choropleth(adm1_sp, adm1_sp, "zn_inad", "Zinc")
+plot_sf_choropleth(adm1_sp, adm1_sp, "fe_inad", "Iron")
+plot_sf_choropleth(adm1_sp, adm1_sp, "vita_inad", "Vitamin A")
+plot_sf_choropleth(adm1_sp, adm1_sp, "vitb12_inad", "Vitamin B12")
+plot_sf_choropleth(adm1_sp, adm1_sp, "folate_inad", "Folate")
+```
+
+## 5. ADM2 Summary and Maps
+
+### 5.1 Summary
+
+```{r adm2-summary}
+adm2_average <- survey_object %>%
+  group_by(adm2) %>%
+  summarise(
+    across(ends_with(c("mg", "g", "mcg")), ~survey_quantile(.x, quantiles = 0.5)),
+    across(ends_with("inad"), ~survey_mean(.x == 1, proportion = TRUE)*100)
+  ) %>%
+  left_join(fe_full_prob(df, adm2, survey_wgt) %>%
+              rename(fe_inad = fe_mg_prop),
+            by = c("adm2" = "subpopulation"))
+
+adm2_sp <- adm2_average %>%
+  left_join(adm2_shapefile, by = "adm2") %>%
+  st_as_sf()
+```
+
+### 5.2 Plots
+
+```{r adm2-maps, fig.width=8, fig.height=6}
+plot_sf_choropleth(adm2_sp, adm2_sp, "zn_inad", "Zinc")
+plot_sf_choropleth(adm2_sp, adm2_sp, "fe_inad", "Iron")
+plot_sf_choropleth(adm2_sp, adm2_sp, "vita_inad", "Vitamin A")
+plot_sf_choropleth(adm2_sp, adm2_sp, "vitb12_inad", "Vitamin B12")
+plot_sf_choropleth(adm2_sp, adm2_sp, "folate_inad", "Folate")
+```
+
+## 6. Notes
+
+- This document uses the HIES `params$year` data.
+- Ensure `h_ar` nutrient cutoffs and shapefiles (`adm1_shapefile`, `adm2_shapefile`) are aligned in format.
