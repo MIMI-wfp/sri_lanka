@@ -1,27 +1,32 @@
-source("src/0_shapefile_clean.R")
-source("src/setup_environment.R")
+# source("src/0_shapefile_clean.R")
+source("R/packages.R")
+source("R/setup.R")
+source_url("https://raw.githubusercontent.com/MIMI-wfp/MIMI-R-functions/refs/heads/main/iron_full_probability/iron_inad_prev.R")
 
 hh_info <- read_rds("data/processed/hh_info.RDS")
 base_ai <- read_rds("data/processed/base_ai.RDS")
 
+# 
 # Sys.getenv()
 
 # connect to database
 
+# 
+# con <- DBI::dbConnect(RMySQL::MySQL(),
+#                  dbname = Sys.getenv("DB_NAME"),
+#                  host = "127.0.0.1",
+#                  port = 3306,
+#                  user = Sys.getenv("DB_USER"),
+#                  password =  Sys.getenv("DB_PASSWORD"))
+# 
+# 
+# # collect information from database
+# 
+# h_ar <- DBI::dbReadTable(con, "h_ar")
+# # 
 
-con <- DBI::dbConnect(RMySQL::MySQL(),
-                 dbname = Sys.getenv("DB_NAME"),
-                 host = "127.0.0.1",
-                 port = 3306,
-                 user = Sys.getenv("DB_USER"),
-                 password =  Sys.getenv("DB_PASSWORD"))
 
-
-# collect information from database
-
-h_ar <- DBI::dbReadTable(con, "h_ar")
-
-# disconnect
+# # disconnect
 DBI::dbDisconnect(con)
 
 ################################################################################
@@ -31,7 +36,7 @@ calc_inad <- function(h_ar, comparison){return(ifelse(comparison<h_ar,1,0))}
 plot_sf_choropleth <- function(
     merged_sf,
     outline_sf,
-    fill_var       = "",
+    fill_var,
     palette        = "Zissou1",
     n_pal          = 100,
     limits         = c(0, 100),
@@ -80,6 +85,12 @@ plot_sf_choropleth <- function(
 
 
 
+## FIX FOR IRON, FULL PROB ##
+df <- hh_info %>% 
+  left_join(base_ai,by = 'hhid') 
+fe_full_prob(df, adm1, survey_wgt)
+
+
 
 survey_object <- hh_info %>% 
   left_join(base_ai,by = 'hhid') %>% 
@@ -88,15 +99,16 @@ survey_object <- hh_info %>%
     zn_inad = calc_inad(h_ar$zn_mg[1], zn_mg),
     folate_inad = calc_inad(h_ar$folate_mcg[1], folate_mcg),
     thia_inad = calc_inad(h_ar$thia_mg[1], thia_mg),
+    vitb12_inad = calc_inad(h_ar$vitb12_mcg, vitb12_mcg)
     ) %>% 
   as_survey_design(ids = ea, weights = survey_wgt, strata = res) 
 
 
-adm1_average <- survey_object %>% 
-  srvyr::group_by(adm1) %>% 
+adm2_average <- survey_object %>% 
+  srvyr::group_by(adm2) %>% 
   srvyr::summarise(
     across(
-      ends_with(c("kcal","mg","g", "mcg")),
+      ends_with(c("kcal", "mg","g", "mcg")),
       ~srvyr::survey_quantile(.x, quantiles = 0.5)
     ),
     across(
@@ -104,29 +116,182 @@ adm1_average <- survey_object %>%
       ~srvyr::survey_mean(.x == 1, proportion = TRUE, na.rm = TRUE)*100
     )
     
-  )
+  ) %>% 
+  left_join(fe_full_prob(df, adm2, survey_wgt) %>% 
+              rename(fe_inad = fe_mg_prop),by = c("adm2" = "subpopulation"))
+
+
+# connect to the shapefile
+
+adm2_sp <- adm2_average %>% 
+  left_join(adm2_shapefile, by = 'adm2') %>% 
+  st_as_sf()
+
+
+adm1_average <- survey_object %>% 
+  srvyr::group_by(adm1) %>% 
+  srvyr::summarise(
+    across(
+      ends_with(c("mg","g", "mcg")),
+      ~srvyr::survey_quantile(.x, quantiles = 0.5)
+    ),
+    across(
+      ends_with("inad"),
+      ~srvyr::survey_mean(.x == 1, proportion = TRUE, na.rm = TRUE)*100
+    )
+    
+  )%>% 
+  left_join(fe_full_prob(df, adm1, survey_wgt) %>% 
+              rename(fe_inad = fe_mg_prop),by = c("adm1" = "subpopulation"))
 
 
 # connect to the shapefile
 
 adm1_sp <- adm1_average %>% 
-  left_join(adm1_sp, by = 'adm1') %>% 
+  left_join(adm1_shapefile, by = 'adm1') %>% 
   st_as_sf()
 
 
 
-# make some maps
+create_and_save_plots <- function(save_plots = TRUE, output_dir = "outputs/plots", 
+                                  width = 10, height = 8, dpi = 300) {
+  
+  # Create output directory if it doesn't exist
+  if (save_plots && !dir.exists(output_dir)) {
+    dir.create(output_dir, recursive = TRUE)
+  }
+  
+  # Define micronutrient data
+  micronutrients <- data.frame(
+    var_name = c("zn_inad", "fe_inad", "vita_inad", "vitb12_inad", "folate_inad"),
+    title = c("Zinc", "Iron", "Vitamin A", "Vitamin B12", "Folate"),
+    plot_name = c("zn", "fe", "va", "b12", "fo"),
+    stringsAsFactors = FALSE
+  )
+  
+  # Define administrative levels
+  admin_levels <- data.frame(
+    sf_data = c("adm1_sp", "adm2_sp"),
+    level_name = c("adm1", "adm2"),
+    stringsAsFactors = FALSE
+  )
+  
+  # Store all plots in a list
+  all_plots <- list()
+  
+  # Loop through admin levels and micronutrients
+  for (i in 1:nrow(admin_levels)) {
+    for (j in 1:nrow(micronutrients)) {
+      
+      # Get current parameters
+      current_sf <- get(admin_levels$sf_data[i])
+      current_level <- admin_levels$level_name[i]
+      current_var <- micronutrients$var_name[j]
+      current_title <- micronutrients$title[j]
+      current_plot_name <- micronutrients$plot_name[j]
+      
+      # Create plot name
+      plot_name <- paste0(current_level, "_", current_plot_name)
+      
+      # Create the plot
+      current_plot <- plot_sf_choropleth(
+        merged_sf  = current_sf,
+        outline_sf = current_sf,
+        fill_var   = current_var,
+        palette    = "Zissou1",
+        limits     = c(0, 100),
+        fill_name  = "Risk of inadequate micronutrient intake (%)",
+        title      = current_title,
+        caption    = "Household Income and Expenditure Survey 2019"
+      )
+      
+      # Store plot in list
+      all_plots[[plot_name]] <- current_plot
+      
+      # Save plot if requested
+      if (save_plots) {
+        filename <- file.path(output_dir, paste0(plot_name, ".png"))
+        ggsave(
+          filename = filename,
+          plot = current_plot,
+          width = width,
+          height = height,
+          dpi = dpi,
+          bg = "white"
+        )
+        cat("Saved:", filename, "\n")
+      }
+      
+      # Also assign to global environment (to maintain your original variable names)
+      assign(plot_name, current_plot, envir = .GlobalEnv)
+    }
+  }
+  
+  # Return the list of plots
+  return(all_plots)
+}
 
-# Example usage
-plot_sf_choropleth(
-  merged_sf  = adm1_sp,
-  outline_sf = adm1_sp,
-  fill_var   = "zn_inad",
-  palette    = "Zissou1",
-  limits     = c(0, 100),
-  fill_name  = "Folate",
-  title      = "Folate Proportion by Administrative Area",
-  caption    = "Household Income and Expenditure Survey 2019"
-)
+# Usage examples:
+
+# 1. Create and save all plots (default behavior)
+all_plots <- create_and_save_plots()
+
+
+# 4. Access individual plots from the returned list
+all_plots$adm1_zn  # ADM1 zinc plot
+all_plots$adm2_fe  # ADM2 iron plot
+
+
+
+
+################################################################################
+
+# read and clean the data
+
+climate_adm2 <- read_csv("data/climate_features_lka_19.csv")
+
+climate_adm2 <- climate_adm2 %>%
+  left_join(hh_info %>% 
+              select(hhid,adm2) %>% 
+              mutate(hhid = as.numeric(hhid)),
+            by = c("household_id" = "hhid")) %>% 
+  group_by(adm2) %>% 
+  summarise(r3q = mean(r3q), rfh_avg = mean(rfh_avg), vim_avg = mean(vim_avg)) 
+  # slice(1) %>% 
+  # select(-household_id)
+  
+
+# climate variables versus risk
+mar<- read_csv("data/processed/sl_ml_targets_2025-07-11.csv") %>% select(hhid,overall_mar)
+
+mar_adm2 <- mar %>% 
+  mutate(hhid = as.character(hhid)) %>% 
+  left_join(hh_info) %>% 
+  select(hhid, overall_mar,ea, adm1,adm2, survey_wgt,res) %>% 
+  as_survey_design(ids = ea, strata = res, weights = survey_wgt) %>% 
+  srvyr::group_by(adm2) %>% 
+  srvyr::summarise(
+    mar = survey_mean(overall_mar)
+  )
+
+# final df
+adm2_inad <- adm2_average %>% 
+  select(adm2, energy_kcal_q50,
+         ends_with("_inad")) %>% 
+  left_join(climate_adm2, by = 'adm2') %>% 
+  left_join(mar_adm2)
+
+
+
+
+
+
+
+adm2_inad %>% 
+  mutate(state = factor(round(as.numeric(adm2)/10))) %>% 
+  ggplot(aes(x = folate_inad,y = vim_avg))+
+    geom_point(aes(color = state,size = 1.5, alpha =0.8))+
+  geom_smooth(method = 'lm', se = F, color = "black")
+
 
 
