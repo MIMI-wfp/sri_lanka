@@ -5,6 +5,10 @@
 .Ruserdata
 *.RDataTmp*
 *.Rproj
+.Rprofile
+
+#environemtns
+renv/
 
 
 *.csv

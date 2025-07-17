@@ -46,23 +46,26 @@ conversion_factor <- readxl::read_xlsx("C:/Users/gabriel.battcock/OneDrive - Wor
 hh_info <- readRDS(paste0(path_to_data,"hh_info.RDS"))
 
 # 
-con <- DBI::dbConnect(RMySQL::MySQL(),
-                 dbname = Sys.getenv("DB_NAME"),
-                 host = "127.0.0.1",
-                 port = 3306,
-                 user = Sys.getenv("DB_USER"),
-                 password =  Sys.getenv("DB_PASSWORD"))
-
-
-# collect information from database
-
-h_ar <- DBI::dbReadTable(con, "h_ar")
-
-# DBI::dbReadTable(con, "ML_targets")
-# # disconnect
-DBI::dbDisconnect(con)
-
-
+# get_har <- function(){
+# 
+#   con <- DBI::dbConnect(RMySQL::MySQL(),
+#                    dbname = Sys.getenv("DB_NAME"),
+#                    host = "127.0.0.1",
+#                    port = 3306,
+#                    user = Sys.getenv("DB_USER"),
+#                    password =  Sys.getenv("DB_PASSWORD"))
+#   
+#   
+#   # collect information from database
+#   
+#   h_ar <<- DBI::dbReadTable(con, "h_ar")
+#   
+#   # DBI::dbReadTable(con, "ML_targets")
+#   # # disconnect
+#   DBI::dbDisconnect(con)
+#   return(h_ar)
+# }
+# get_har()
 
 
 # Data exploration #############################################################
@@ -187,6 +190,8 @@ converted_food <- converted_food %>%
 # Apply the imputation function by food item
 imputed_food <- converted_food
 
+
+
 imputed_food <- impute_quantity(imputed_food, 218,217)#purchased food 
 imputed_food <- impute_quantity(imputed_food, 220,217)#purchased food 
 imputed_food <- impute_quantity(imputed_food, 229,217)#purchased food
@@ -210,7 +215,7 @@ imputed_food <- impute_quantity(imputed_food, 1819,1812)
 
 
 imputed_food%>% 
-  filter(is.na(quantity))
+  filter(code == 1819)
 
 
 
