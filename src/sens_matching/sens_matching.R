@@ -31,7 +31,7 @@ length(unique(data.df$hhis))
 
 # Selecting the nutrients 
 #vars <- c("VITA_RAE", "VITB12", "FOLDE", "ZN", "FE")
-vars <- names(data.df)[c(14,15,16,20,21)]
+vars <- names(data.df)[c(15,20)]
 
 # Getting the list of food sorted by most consumed (freq. (no. of HHs))
 food_list <- data.df %>% filter(!is.na(quantity_100g)) %>%
@@ -156,3 +156,4 @@ df %>% mutate(p.value = ifelse(scenario %in% p.items, "YES", "NO")) %>%
 
 df %>% 
   arrange(Median)
+
