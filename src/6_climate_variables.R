@@ -26,6 +26,9 @@ adm2_inad <- adm2_average %>%
 
 adm2_inad %>% 
   mutate(state = factor(round(as.numeric(adm2)/10))) %>% 
-  ggplot(aes(x = folate_inad,y = r3q, color = state))+
-  geom_point(aes(size = 2))
+  ggplot(aes(x = folate_inad,y = r3q))+
+  geom_point(aes(color = state,size = 2))+
+  geom_smooth(method ="lm", se = F)
 
+
+ggplot
