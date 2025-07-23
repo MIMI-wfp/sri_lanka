@@ -161,6 +161,17 @@ converted_food <- SEC_4_1_FOOD_EXP %>%
   mutate(conversion_to_grams = ifelse(is.na(conversion_to_grams), 1, conversion_to_grams),
          quantity = quantity*conversion_to_grams)
 
+
+#check the numbers of people consuming each food 
+converted_food_hh <- converted_food %>% 
+  filter(conversion_to_grams != 1) %>% 
+  group_by(code) %>% 
+  summarise(
+    perc_hh = n()*100/19911,
+    n_hh = n()
+    )
+
+
 converted_food$group <- floor(as.numeric(converted_food$code) / 100)
 
 converted_food %>% 
