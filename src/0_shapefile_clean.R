@@ -1,16 +1,6 @@
 ### Reading in SL HIES 2019
-
-rq_packages <- c("tidyverse", "srvyr","sf", "geojsonsf", "tidyverse", "devtools", "tmap")
-
-installed_packages <- rq_packages %in% rownames(installed.packages())
-if (any(installed_packages == FALSE)) {
-  install.packages(rq_packages[!installed_packages])
-}
-
-lapply(rq_packages, require, character.only = T)
-
-rm(list= c("rq_packages", "installed_packages"))
-
+source("R/packages.R")
+source("R/setup.R")
 
 ################################################################################
 
@@ -133,7 +123,7 @@ lka_adm1 <- lka_adm1 %>%
 
 # try making a map using the HH data
 # adm1 
-adm1_sp <- adm1_match %>% 
+adm1_shapefile <- adm1_match %>% 
 
   left_join(lka_adm1, by = c("adm1" = "Code")) %>% 
   mutate(adm1 = floor(district/10)) %>% 
@@ -147,7 +137,7 @@ adm1_sp <- adm1_match %>%
 
 # adm 2
 
-adm2_sp <- adm2_match %>% 
+adm2_shapefile <- adm2_match %>% 
   
   left_join(lka_adm2, by = c("adm2" = "Code")) %>% 
   select(-adm2, -Name) %>% 

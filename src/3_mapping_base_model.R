@@ -26,6 +26,16 @@ base_ai <- read_rds("data/processed/base_ai.RDS")
 # # 
 
 
+
+
+
+# collect information from database
+
+h_ar <- DBI::dbReadTable(con, "h_ar")
+#
+
+
+
 # # disconnect
 DBI::dbDisconnect(con)
 
@@ -244,54 +254,11 @@ all_plots$adm2_fe  # ADM2 iron plot
 
 
 
-################################################################################
-
-# read and clean the data
-
-climate_adm2 <- read_csv("data/climate_features_lka_19.csv")
-
-climate_adm2 <- climate_adm2 %>%
-  left_join(hh_info %>% 
-              select(hhid,adm2) %>% 
-              mutate(hhid = as.numeric(hhid)),
-            by = c("household_id" = "hhid")) %>% 
-  group_by(adm2) %>% 
-  summarise(r3q = mean(r3q), rfh_avg = mean(rfh_avg), vim_avg = mean(vim_avg)) 
-  # slice(1) %>% 
-  # select(-household_id)
-  
-
-# climate variables versus risk
-mar<- read_csv("data/processed/sl_ml_targets_2025-07-11.csv") %>% select(hhid,overall_mar)
-
-mar_adm2 <- mar %>% 
-  mutate(hhid = as.character(hhid)) %>% 
-  left_join(hh_info) %>% 
-  select(hhid, overall_mar,ea, adm1,adm2, survey_wgt,res) %>% 
-  as_survey_design(ids = ea, strata = res, weights = survey_wgt) %>% 
-  srvyr::group_by(adm2) %>% 
-  srvyr::summarise(
-    mar = survey_mean(overall_mar)
-  )
-
-# final df
-adm2_inad <- adm2_average %>% 
-  select(adm2, energy_kcal_q50,
-         ends_with("_inad")) %>% 
-  left_join(climate_adm2, by = 'adm2') %>% 
-  left_join(mar_adm2)
 
 
 
 
 
-
-
-adm2_inad %>% 
-  mutate(state = factor(round(as.numeric(adm2)/10))) %>% 
-  ggplot(aes(x = folate_inad,y = vim_avg))+
-    geom_point(aes(color = state,size = 1.5, alpha =0.8))+
-  geom_smooth(method = 'lm', se = F, color = "black")
 
 
 

@@ -1,15 +1,20 @@
 source("src/0_shapefile_clean.R")
-source("src/setup_environment.R")
+# source("src/setup_environment.R")
 
 hh_info <- read_rds("data/processed/hh_info.RDS")
 base_ai <- read_rds("data/processed/base_ai.RDS")
 
 # ------------------------------------------------------------------------------
+
 set.seed(123)  # Use any number you prefer
 random_hhids <- sample(hh_info$hhid, size = 2000)
   
 
-data.df <- read.csv(here::here("data/processed", "sens_matching.csv"))
+
+
+
+
+
 names(data.df)
 data.df <- data.df %>% filter(hhid %in% random_hhids)
 
@@ -19,7 +24,7 @@ data.df <- data.df %>% filter(hhid %in% random_hhids)
 # Checking the data
 unique(data.df$item_name)
 length(unique(data.df$code))
-length(unique(data.df$hhis))
+length(unique(data.df$hhid))
 # data.df$item_name[data.df$code == "61"]
 # Some mismatches between no. of unique items and codes
 # data.df %>% distinct(item_name, Item_Code) %>% count(item_name)
@@ -100,8 +105,7 @@ for(i in 1:nrow(food_list)){
 }
 
 # Saving the output into spreadsheet
-writexl::write_xlsx(test, 
-                    here::here("data/inter-output", paste0("sensitivity_outputb_", Sys.Date(), ".xlsx")))
+writexl::write_xlsx(test,here::here("outputs/inter-output", paste0("sensitivity_outputb_", Sys.Date(), ".xlsx")))
 
 names(wilcox_test)[1:4] <- names(broom::tidy(x))
 #names(t_test)[11:12] <- c("test_food","test_nutrient" )
@@ -116,7 +120,9 @@ p.values <- wilcox_test %>% dplyr::filter(!is.na(statistic)) %>%
                      values_from = "p.value") 
 
 # Saving results p.values per nutrient form loop
-write.csv(p.values, here::here( "data/inter-output", paste0("p.values_wilcox_food_nutrient_",
+
+write.csv(p.values, here::here( "outputs/inter-output", paste0("p.values_wilcox_food_nutrient_",
+
                                                        Sys.Date(), ".csv")))
 
 ## Graph (2) ----------
@@ -142,9 +148,9 @@ names(df) <- c("scenario", "Median", "Q25", "Q75")
 p.items <- p.values$test_food[p.values[, names(test[[1]])[j]]<0.05]
 
 # Contribution to each nutrient 
-df %>% mutate(p.value = ifelse(scenario %in% p.items, "YES", "NO")) %>% 
+df %>% dplyr::mutate(p.value = ifelse(scenario %in% p.items, "YES", "NO")) %>% 
   arrange(Median) %>% 
-  mutate(scenario = factor(scenario, levels = scenario)) %>% 
+  dplyr::mutate(scenario = factor(scenario, levels = scenario)) %>% 
   ggplot() + 
   geom_point(aes(scenario, Median, colour =p.value)) +
   #geom_point(aes(x=reorder(scenario, Median), y=Median, colour = p.value)) +
@@ -154,6 +160,8 @@ df %>% mutate(p.value = ifelse(scenario %in% p.items, "YES", "NO")) %>%
   #  theme(axis.text = element_text(angle = 90)) 
   coord_flip() 
 
+
 df %>% 
   arrange(Median)
+
 
