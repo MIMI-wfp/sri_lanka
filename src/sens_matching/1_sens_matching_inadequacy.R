@@ -4,6 +4,8 @@ source("src/0_shapefile_clean.R")
 
 hh_info <- read_rds("data/processed/hh_info.RDS")
 base_ai <- read_rds("data/processed/base_ai.RDS")
+sl_fct <- readxl::read_xlsx("C:/Users/gabriel.battcock/OneDrive - World Food Programme/General - MIMI Project/Countries/Sri Lanka/data/sri_lanka_food_matches.xlsx", 
+                            sheet = 1)
 
 set.seed(123)
 random_hhids <- sample(hh_info$hhid, size = 2000)
@@ -19,13 +21,14 @@ EARs <- c(fe_mg = 15, folate_mcg = 250)
 # Get food list by frequency
 food_list <- data.df %>%
   filter(!is.na(quantity_100g)) %>%
-  group_by(code) %>%
+ 
+  group_by(item_name) %>%
   summarise(N = n(), Mean_qty = mean(quantity_100g, na.rm = TRUE)) %>%
   arrange(desc(N))
 
 # Initialize lists
 test <- list()
-wilcox_test <- data.frame()
+# wilcox_test <- data.frame()
 
 # Baseline calculation
 test[[1]] <- data.df %>%
@@ -42,13 +45,17 @@ test[[1]] <- data.df %>%
   
   ungroup()
 
-sum_vars <- grep("Sum.", names(test[[1]]), value = TRUE)
+sum_vars <- grep("Inadequate", names(test[[1]]), value = TRUE)
+
+
+chi_squared <- data.frame()
+
 
 # Leave-one-out loop
 for (i in 1:nrow(food_list)) {
   n <- i + 1
   test[[n]] <- data.df %>%
-    filter(!is.na(quantity_100g), !code %in% food_list[i, 1]) %>%
+    filter(!is.na(quantity_100g), !item_name %in% food_list[i, 1]) %>%
     group_by(hhid) %>%
     summarise(across(all_of(vars), sum, na.rm = TRUE, .names = "Sum.{.col}")) %>%
     mutate(test_food = paste0(food_list[i, 1], "_", gsub(" ", "", food_list[i, 2]))) %>%
@@ -64,60 +71,72 @@ for (i in 1:nrow(food_list)) {
   
   print(n)
   
+  
   for (j in seq_along(sum_vars)) {
     try({
-      x <- wilcox.test(
-        ## to do ## test the adeqaucy vs chi-squared test
+      # Get the binary inadequacy column name
+      colname <- sum_vars[j]
       
-        log(pull(test[[n]], sum_vars[j])),
-        log(pull(test[[1]], sum_vars[j]))
+      # Create a 2x2 contingency table
+      contingency <- table(
+        group = c(rep("baseline", nrow(test[[1]])), rep("test", nrow(test[[n]]))),
+        inadequate = c(test[[1]][[colname]], test[[n]][[colname]])
       )
       
-      # tidy it up
+      # Run chi-squared test
+      x <- chisq.test(contingency)
+      
+      # Tidy the result
       result <- broom::tidy(x)
-      result$test_food <- paste0(food_list[i, 1], "_", gsub(" ", "", food_list[i, 2]))
-      result$test_nutrient <- sum_vars[j]
-      wilcox_test <- bind_rows(wilcox_test, result)
+      result$test_food <-paste0(food_list[i, 1], "_", gsub(" ", "", food_list[i, 2]))
+      result$test_nutrient <- colname
+
+      chi_squared <- bind_rows(chi_squared, result)
     }, silent = TRUE)
     print(j)
   }
+  
 }
 
 # Save full test list
 writexl::write_xlsx(test, here::here("outputs/inter-output", paste0("sensitivity_outputb_", Sys.Date(), ".xlsx")))
 
 # Save Wilcoxon test results
-names(wilcox_test)[1:4] <- names(broom::tidy(x))
-write.csv(wilcox_test, here::here("data/inter-output", paste0("wilcox_test_food_nutrient_", Sys.Date(), ".csv")))
+names(chi_squared)[1:4] <- names(broom::tidy(x))
+write.csv(chi_squared, here::here("data/inter-output", paste0("chi_squared_food_nutrient_", Sys.Date(), ".csv")))
 
 # Pivot p-values
-p.values <- wilcox_test %>%
+p.values <- chi_squared %>%
   filter(!is.na(statistic)) %>%
   select(p.value, test_food, test_nutrient) %>%
   tidyr::pivot_wider(names_from = "test_nutrient", values_from = "p.value")
 
-write.csv(p.values, here::here("outputs/inter-output", paste0("p.values_wilcox_food_nutrient_", Sys.Date(), ".csv")))
+write.csv(p.values, here::here("outputs/inter-output", paste0("p.values_chi_squared_food_nutrient_", Sys.Date(), ".csv")))
 
 # Plotting median + IQR for one nutrient
-j <- 2  # index of nutrient to plot
+j <- 5  # index of nutrient to plot
+
+names(test[[1]])[j]
 df <- data.frame()
+
+
 
 for (i in 1:length(test)) {
   df[i, "scenario"] <- unique(test[[i]]$test_food)
-  df[i, "Median"] <- median(pull(test[[i]], names(test[[1]])[j]), na.rm = TRUE)
-  df[i, "Q25"] <- quantile(pull(test[[i]], names(test[[1]])[j]), 0.25, na.rm = TRUE)
-  df[i, "Q75"] <- quantile(pull(test[[i]], names(test[[1]])[j]), 0.75, na.rm = TRUE)
+  df[i, "Median"] <-mean(pull(test[[i]], names(test[[1]])[j]) == 1, na.rm = TRUE)
+  # df[i, "Q25"] <- quantile(pull(test[[i]], names(test[[1]])[j]), 0.25, na.rm = TRUE)
+  # df[i, "Q75"] <- quantile(pull(test[[i]], names(test[[1]])[j]), 0.75, na.rm = TRUE)
 }
 
 p.items <- p.values$test_food[p.values[, names(test[[1]])[j]] < 0.05]
 
 df %>%
   mutate(p.value = ifelse(scenario %in% p.items, "YES", "NO")) %>%
-  arrange(Median) %>%
+  arrange(desc(Median)) %>%
   mutate(scenario = factor(scenario, levels = scenario)) %>%
   ggplot() +
   geom_point(aes(scenario, Median, colour = p.value)) +
-  geom_errorbar(aes(scenario, ymin = Q25, ymax = Q75), width = 0.2) +
+  # geom_errorbar(aes(scenario, ymin = Q25, ymax = Q75), width = 0.2) +
   theme_bw() +
   labs(y = names(test[[1]])[j]) +
   coord_flip()
