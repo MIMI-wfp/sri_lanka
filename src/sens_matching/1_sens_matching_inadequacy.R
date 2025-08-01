@@ -2,18 +2,36 @@
 source("src/0_shapefile_clean.R")
 # source("src/setup_environment.R")
 
+# sri lanka data
+
 hh_info <- read_rds("data/processed/hh_info.RDS")
 base_ai <- read_rds("data/processed/base_ai.RDS")
+sl_data.df <- read_csv("data/processed/sens_matching.csv")
 sl_fct <- readxl::read_xlsx("C:/Users/gabriel.battcock/OneDrive - World Food Programme/General - MIMI Project/Countries/Sri Lanka/data/sri_lanka_food_matches.xlsx", 
                             sheet = 1)
+# read.csv("C:/Users/gabriel.battcock/OneDrive - World Food Programme/Documents/MIMI_mac/nsso_hces_2023/data/nsso_subset_lucia.csv")
+
+# indian data
+
+ind_data.df <- read.csv("C:/Users/gabriel.battcock/OneDrive - World Food Programme/Documents/MIMI_mac/nsso_hces_2023/data/nsso_subset_lucia.csv")
+ind_data.df <- ind_data.df %>% 
+  rename(hhid = common_id, code = Item_Code, vitb12 = vitaminb12_in_mcg, fe_mg = iron_mg, zn_mg = zinc_mg)
+
+# bangladesh data
+bgd_base_ai <- read.csv(paste0(path_to_data, "bgd_base_ai.csv"))
+bgd_data.df <- read.csv("data/processed/bgd_sens_matching.csv")
 
 set.seed(123)
 random_hhids <- sample(hh_info$hhid, size = 2000)
 
-data.df <- data.df %>% filter(hhid %in% random_hhids)
+
+
+sl_data.df <- sl_data.df %>% filter(hhid %in% random_hhids)
+
+# data.df <- ind_data.df 
 
 # Nutrients to analyze
-vars <- names(data.df)[c(15, 20)]  # e.g., VITA_RAE, VITB12
+vars <- c("folate_mcg", "fe_mg")  # e.g., VITA_RAE, VITB12
 
 # Define EARs (adjust as needed)
 EARs <- c(fe_mg = 15, folate_mcg = 250)
