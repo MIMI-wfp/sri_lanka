@@ -4,31 +4,58 @@ source("src/0_shapefile_clean.R")
 
 # sri lanka data
 
-hh_info <- read_rds("data/processed/hh_info.RDS")
-base_ai <- read_rds("data/processed/base_ai.RDS")
-sl_data.df <- read_csv("data/processed/sens_matching.csv")
-sl_fct <- readxl::read_xlsx("C:/Users/gabriel.battcock/OneDrive - World Food Programme/General - MIMI Project/Countries/Sri Lanka/data/sri_lanka_food_matches.xlsx", 
-                            sheet = 1)
 # read.csv("C:/Users/gabriel.battcock/OneDrive - World Food Programme/Documents/MIMI_mac/nsso_hces_2023/data/nsso_subset_lucia.csv")
 
 # indian data
-
-ind_data.df <- read.csv("C:/Users/gabriel.battcock/OneDrive - World Food Programme/Documents/MIMI_mac/nsso_hces_2023/data/nsso_subset_lucia.csv")
-ind_data.df <- ind_data.df %>% 
-  rename(hhid = common_id, code = Item_Code, vitb12 = vitaminb12_in_mcg, fe_mg = iron_mg, zn_mg = zinc_mg)
-
+choose_data <- function(country){
+  set.seed(123)
+  
+  
+  if(country == "SL"){
+    country <<- country
+    hh_info <- read_rds("data/processed/hh_info.RDS")
+    base_ai <- read_rds("data/processed/base_ai.RDS")
+    sl_data.df <- read_csv("data/processed/sens_matching.csv")
+    sl_fct <- readxl::read_xlsx("C:/Users/gabriel.battcock/OneDrive - World Food Programme/General - MIMI Project/Countries/Sri Lanka/data/sri_lanka_food_matches.xlsx", 
+                              sheet = 1)
+  
+  
+ 
+  random_hhids <- sample(hh_info$hhid, size = 2000)
+  
+  
+  
+  data.df <- sl_data.df %>% filter(hhid %in% random_hhids)
+  return(data.df)
+  }
+  
+  
+  if(country == "IND"){
+    country <<- country
+    ind_data.df <- read.csv("C:/Users/gabriel.battcock/OneDrive - World Food Programme/Documents/MIMI_mac/nsso_hces_2023/data/nsso_subset_lucia.csv")
+    data.df <- ind_data.df %>% 
+      rename(hhid = common_id, code = Item_Code, vitb12_mcg = vitaminb12_in_mcg, fe_mg = iron_mg,
+             zn_mg = zinc_mg, folate_mcg = folate_ug)
+    return(data.df)
+    }
+  
+  if(country == "BGD"){
 # bangladesh data
-bgd_base_ai <- read.csv(paste0(path_to_data, "bgd_base_ai.csv"))
-bgd_data.df <- read.csv("data/processed/bgd_sens_matching.csv")
-
-set.seed(123)
-random_hhids <- sample(hh_info$hhid, size = 2000)
-
-
-
-sl_data.df <- sl_data.df %>% filter(hhid %in% random_hhids)
-
-# data.df <- ind_data.df 
+    path_to_data <- "C:/Users/gabriel.battcock/OneDrive - World Food Programme/Desktop/bangladesh_base_model/"
+    country <<- country
+    bgd_base_ai <- read.csv(paste0(path_to_data, "bgd_base_ai.csv"))
+    bgd_data.df <- read.csv("data/processed/bgd_sens_matching.csv")
+    
+    random_hhids <- sample(bgd_base_ai$hhid, size = 2000)
+    
+    
+    
+    data.df <- bgd_data.df %>% filter(hhid %in% random_hhids)
+    rm(path_to_data)
+    return(data.df)
+    }
+}
+data.df <- choose_data("SL")
 
 # Nutrients to analyze
 vars <- c("folate_mcg", "fe_mg")  # e.g., VITA_RAE, VITB12
@@ -117,11 +144,11 @@ for (i in 1:nrow(food_list)) {
 }
 
 # Save full test list
-writexl::write_xlsx(test, here::here("outputs/inter-output", paste0("sensitivity_outputb_", Sys.Date(), ".xlsx")))
+writexl::write_xlsx(test, here::here("outputs/inter-output", paste0(country,"_sensitivity_outputb_", Sys.Date(), ".xlsx")))
 
 # Save Wilcoxon test results
 names(chi_squared)[1:4] <- names(broom::tidy(x))
-write.csv(chi_squared, here::here("data/inter-output", paste0("chi_squared_food_nutrient_", Sys.Date(), ".csv")))
+write.csv(chi_squared, here::here("data/inter-output", paste0(country,"_chi_squared_food_nutrient_", Sys.Date(), ".csv")))
 
 # Pivot p-values
 p.values <- chi_squared %>%
@@ -129,12 +156,13 @@ p.values <- chi_squared %>%
   select(p.value, test_food, test_nutrient) %>%
   tidyr::pivot_wider(names_from = "test_nutrient", values_from = "p.value")
 
-write.csv(p.values, here::here("outputs/inter-output", paste0("p.values_chi_squared_food_nutrient_", Sys.Date(), ".csv")))
+write.csv(p.values, here::here("outputs/inter-output", paste0(country,"_p.values_chi_squared_food_nutrient_", Sys.Date(), ".csv")))
 
 # Plotting median + IQR for one nutrient
 j <- 5  # index of nutrient to plot
 
 names(test[[1]])[j]
+name <- names(test[[1]])[j]
 df <- data.frame()
 
 
@@ -147,6 +175,10 @@ for (i in 1:length(test)) {
 }
 
 p.items <- p.values$test_food[p.values[, names(test[[1]])[j]] < 0.05]
+
+significant <- data.frame(setNames(list(p.items), names(test[[1]])[j]))
+write_csv(significant, here::here("outputs/inter-output", paste0(country,"_significant_items_",name, Sys.Date(), ".csv")))
+
 
 df %>%
   mutate(p.value = ifelse(scenario %in% p.items, "YES", "NO")) %>%
