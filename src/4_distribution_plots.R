@@ -175,7 +175,7 @@ food_value_svy <- food_value %>%
 
 read_csv("data/food_group_map.csv")
 
-food_group_cols <- colnames( %>% select(-c(item_code,item_name)))
+# food_group_cols <- colnames( %>% select(-c(item_code,item_name)))
 
 # make into a data 
 ind_nss_hdds<- ind_nss_hdds %>% 

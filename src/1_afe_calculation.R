@@ -14,8 +14,9 @@ rm(list= c("rq_packages", "installed_packages"))
 
 ################################################################################
 
-
+## THIS WILL CHANGE DEPENDING ON WHERE YOU SAVE YOUR DATA ######
 path_to_survey <- "C:/Users/gabriel.battcock/OneDrive - World Food Programme/General - MIMI Project/Countries/Sri Lanka/data/HIES_2019/HIES_2019/"
+path_to_raw_data <- "C:/Users/gabriel.battcock/OneDrive - World Food Programme/General - MIMI Project/Countries/Sri Lanka/data/"
 
 module_list <- list.files(path = path_to_survey, pattern = NULL, all.files = FALSE,
                           full.names = FALSE, recursive = FALSE,
@@ -36,9 +37,9 @@ for(file in modules){
 }
 
 # read in fct
-sl_fct <- readxl::read_xlsx("C:/Users/gabriel.battcock/OneDrive - World Food Programme/General - MIMI Project/Countries/Sri Lanka/data/sri_lanka_food_matches.xlsx", 
+sl_fct <- readxl::read_xlsx(paste0(path_to_raw_data, "sri_lanka_food_matches.xlsx"),
                             sheet = 1)
-conversion_factor <- readxl::read_xlsx("C:/Users/gabriel.battcock/OneDrive - World Food Programme/General - MIMI Project/Countries/Sri Lanka/data/conversion_factor_sl.xlsx", 
+conversion_factor <- readxl::read_xlsx(paste0(path_to_raw_data,"conversion_factor_sl.xlsx"), 
                                        sheet = 2)
 
 
