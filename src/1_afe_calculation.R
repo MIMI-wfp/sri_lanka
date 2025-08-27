@@ -67,13 +67,13 @@ SEC_4_1_FOOD_EXP %>%
 # create a hh id with district, sector, psu, snumber and hhno
 
 HH_expenditure_hh_Income %>% 
-  mutate(hhid = paste0(district,sector,psu,snumber,hhno)) %>% 
+  mutate(hhid = paste0(psu,snumber,hhno)) %>% 
   distinct(hhid)
 
 # creates unque hhid 
 
 create_hhid <- function(df){
-  df <- df %>%  mutate(hhid = paste0(district,sector,psu,snumber,hhno))
+  df <- df %>%  mutate(hhid = paste0(psu,snumber,hhno))
   return(df)
 }
 
@@ -95,7 +95,7 @@ SEC_4_1_FOOD_EXP <- create_hhid(SEC_4_1_FOOD_EXP)
 # AFE calculation
 
 # set AFE constant 
-afe_value <- 2100
+afe_value <- 2170#https://www.mri.gov.lk/wp-content/uploads/2024/02/Dietary-Referance-Intakes-for-Sri-Lanka.pdf
 
 demographics <- SEC_1_DEMOGRAPHIC %>% 
   select(hhid, person_serial_no, relationship, sex, age, birth_year, birth_month, month)
@@ -127,12 +127,10 @@ rm(hh_with_u2s)
 
 # energy requirements for u2s --------------------------------------------------
 u2s <- u2s %>%
-  mutate(TEE = case_when(
-    age_month <= 2 ~ 0,   # only breast feeding - no food intake
-    age_month >= 3 & age_month <= 5 ~ 76,  # energy from food is 76 kcal per day for 3-5 months of age
-    age_month >= 6 & age_month <= 8 ~ 269,  # 269 kcal per day for 6-8 months of age
-    age_month >= 9 & age_month <= 11 ~ 451,   # 451 kcal per day for 9-11 months of age
-    age_month >= 12 ~ 746 # 746 kcal per day for those aged 12-months - 2years
+  mutate(TEE = case_when( # https://www.mri.gov.lk/wp-content/uploads/2024/02/Dietary-Referance-Intakes-for-Sri-Lanka.pdf
+    age_month <= 6 ~ 0,   # only breast feeding - no food intake
+    age_month >= 7 & age_month <= 12 ~ 660,  # energy from food is 76 kcal per day for 3-5 months of age
+    age_month >= 12 ~ 990 # 746 kcal per day for those aged 12-months - 2years
   )) # 746 kcal for those without a birth certificate, assuming they can be older
 
 # AFE calculation for children below 2 years old:
@@ -184,8 +182,7 @@ tee_calc <- demographics_others %>%
   filter(age >= 2) %>%  # Remove under 2's as these have already been calculated above
   mutate(PAL = ifelse(age > 18, 1.76, NA))  
 
-# TEE FOR CHILDREN (2-18 years old) (formula from tables 4.5 and 4.6 in Human energy requirements
-# Report from FAO/WHO/UNU (2001)):
+# TEE FOR CHILDREN (2-18 years old) using sri lankan data
 tee_calc <- tee_calc %>% 
   mutate(TEE = case_when(    sex == 1 & age == 2 ~ 950,
                              sex == 1 & age == 3 ~ 1125,
