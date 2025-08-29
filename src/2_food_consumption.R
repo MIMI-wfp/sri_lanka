@@ -41,32 +41,42 @@ for(file in modules){
 # read in fct
 sl_fct <- readxl::read_xlsx(paste0(path_to_raw_data,"sri_lanka_food_matches.xlsx"), 
                             sheet = 1)
+# gabriel conversion factors
 conversion_factor <- readxl::read_xlsx(paste0(path_to_raw_data, "conversion_factor_sl.xlsx"), 
                                        sheet = 2)
+#DCS convesion factors
+conversion_factor <- readxl::read_xlsx("data/raw/Item_kcal_coeff_2019_wfp.xlsx") %>%  
+  select(itemcode, grameq) %>% 
+  rename(code = itemcode,
+         conversion_to_grams  = grameq)
+
 
 hh_info <- readRDS(paste0(path_to_data,"hh_info.RDS"))
 
 # 
-# get_har <- function(){
-# 
-#   con <- DBI::dbConnect(RMySQL::MySQL(),
-#                    dbname = Sys.getenv("DB_NAME"),
-#                    host = "127.0.0.1",
-#                    port = 3306,
-#                    user = Sys.getenv("DB_USER"),
-#                    password =  Sys.getenv("DB_PASSWORD"))
-#   
-#   
-#   # collect information from database
-#   
-#   h_ar <<- DBI::dbReadTable(con, "h_ar")
-#   
-#   # DBI::dbReadTable(con, "ML_targets")
-#   # # disconnect
-#   DBI::dbDisconnect(con)
-#   return(h_ar)
-# }
-# get_har()
+get_har <- function(){
+
+  con <- DBI::dbConnect(RMySQL::MySQL(),
+                   dbname = Sys.getenv("DB_NAME"),
+                   host = "127.0.0.1",
+                   port = 3306,
+                   user = Sys.getenv("DB_USER"),
+                   password =  Sys.getenv("DB_PASSWORD"))
+
+
+  # collect information from database
+
+  h_ar <<- DBI::dbReadTable(con, "h_ar")
+
+  # DBI::dbReadTable(con, "ML_targets")
+  # # disconnect
+  DBI::dbDisconnect(con)
+  return(h_ar)
+}
+har <- get_har() %>% 
+  filter(iso3 == "BEN")
+
+
 
 
 # Data exploration #############################################################
@@ -250,10 +260,11 @@ edible_food <- imputed_food %>%
 
 food_afe <- edible_food %>% 
   select(hhid, code, quantity) %>% 
-  left_join(hh_info %>% select(hhid,afe) %>% group_by(hhid) %>% slice(1), by= 'hhid') %>% 
+  left_join(hh_info %>% select(hhid,afe) %>% group_by(hhid) %>% slice(1) %>% ungroup(), by= 'hhid') %>% 
   mutate(quantity_ai = quantity/(7*afe)) 
 
 # rm(imputed_food, converted_food)
+anti_join(edible_food, hh_info, by = "hhid") %>% distinct(hhid)
 
 food_afe$group <- floor(as.numeric(food_afe$code) / 100)
 # 
@@ -295,7 +306,7 @@ food_afe <- food_afe %>%
 food_afe <- food_afe %>% 
   group_by(code) %>% 
   mutate(quantity_ai = ifelse(is.na(quantity_ai),
-                              median(quantity_ai, na.rm =T),
+                              quantile(quantity_ai,probs = 0.95, na.rm =T),
                               quantity_ai)) %>% 
   ungroup()
 
@@ -373,15 +384,15 @@ calc_nar <- function(h_ar, comparison){return(ifelse(comparison<h_ar,comparison/
 
 
 
-sl_ml_targets <- base_ai %>% 
+sl_ml_targets <- hh_ai %>% 
   select(hhid,vita_rae_mcg,folate_mcg,vitb12_mcg,
          fe_mg,zn_mg) %>% 
   mutate(
     vita_nar = calc_nar(h_ar$vita_rae_mcg, vita_rae_mcg),
     fol_nar = calc_nar(h_ar$folate_mcg,folate_mcg),
     vitb12_nar = calc_nar(h_ar$vitb12_mcg, vitb12_mcg),
-    fe_nar = calc_nar(h_ar$fe_mg,fe_mg),
-    zn_nar = calc_nar(h_ar$zn_mg,zn_mg),
+    fe_nar = calc_nar(15,fe_mg),
+    zn_nar = calc_nar(8.9,zn_mg),#for sri lanka it is lower
     overall_mar = (vita_nar+fol_nar+vitb12_nar+fe_nar+zn_nar)/5,
     va_ref = 490,
     fol_ref = 250,
