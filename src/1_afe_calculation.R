@@ -95,7 +95,7 @@ SEC_4_1_FOOD_EXP <- create_hhid(SEC_4_1_FOOD_EXP)
 # AFE calculation
 
 # set AFE constant 
-afe_value <- 2170#https://www.mri.gov.lk/wp-content/uploads/2024/02/Dietary-Referance-Intakes-for-Sri-Lanka.pdf
+afe_value <- 2170 #https://www.mri.gov.lk/wp-content/uploads/2024/02/Dietary-Referance-Intakes-for-Sri-Lanka.pdf
 
 demographics <- SEC_1_DEMOGRAPHIC %>% 
   select(hhid, person_serial_no, relationship, sex, age, birth_year, birth_month, month)
@@ -156,7 +156,7 @@ afe_breastfeeding <- breastfeeding %>%
       age > 18 & age <= 30 ~ 14.818 * weight + 486.6,
       age > 30 & age < 60 ~ 8.126 * weight + 845.6
     ),
-    TEE = case_when(age > 15 & age <= 18 ~ 2500)
+    TEE = case_when(age > 15 & age <= 18 ~ 2400)
   ) %>% 
   mutate(TEE = ifelse(is.na(BMR), TEE +483, BMR * PAL + 483),
          afe = TEE/afe_value) %>% 
@@ -182,53 +182,37 @@ tee_calc <- demographics_others %>%
   filter(age >= 2) %>%  # Remove under 2's as these have already been calculated above
   mutate(PAL = ifelse(age > 18, 1.76, NA))  
 
-# TEE FOR CHILDREN (2-18 years old) using sri lankan data
+# TEE FOR ALL PEOPLE (2-70 years old) using sri lankan data
 tee_calc <- tee_calc %>% 
-  mutate(TEE = case_when(    sex == 1 & age == 2 ~ 950,
-                             sex == 1 & age == 3 ~ 1125,
-                             sex == 1 & age == 4 ~ 1250,
-                             sex == 1 & age == 5 ~ 1350,
-                             sex == 1 & age == 6 ~ 1475,
-                             sex == 1 & age == 7 ~ 1575,
-                             sex == 1 & age == 8 ~ 1700,
-                             sex == 1 & age == 9 ~ 1825,
-                             sex == 1 & age == 10 ~ 1975,
-                             sex == 1 & age == 11 ~ 2150,
-                             sex == 1 & age == 12 ~ 2350,
-                             sex == 1 & age == 13 ~ 2550,
-                             sex == 1 & age == 14 ~ 2775,
-                             sex == 1 & age == 15 ~ 3000,
-                             sex == 1 & age == 16 ~ 3175,
-                             sex == 1 & age == 17 ~ 3325,
-                             sex == 1 & age == 18 ~ 3400,
-                             sex == 2 & age == 2 ~ 850,
-                             sex == 2 & age == 3 ~ 1050,
-                             sex == 2 & age == 4 ~ 1150,
-                             sex == 2 & age == 5 ~ 1250,
-                             sex == 2 & age == 6 ~ 1325,
-                             sex == 2 & age == 7 ~ 1425,
-                             sex == 2 & age == 8 ~ 1550,
-                             sex == 2 & age == 9 ~ 1700,
-                             sex == 2 & age == 10 ~ 1850,
-                             sex == 2 & age == 11 ~ 2000,
-                             sex == 2 & age == 12 ~ 2150,
-                             sex == 2 & age == 13 ~ 2275,
-                             sex == 2 & age == 14 ~ 2375,
-                             sex == 2 & age == 15 ~ 2450,
-                             sex == 2 & age > 15 & age <= 18 ~ 2500))
+  mutate(TEE = case_when(    age >= 1 & age < 4  ~ 990,
+                             age >= 4 & age < 7 ~ 1560,
+                             age >= 7 & age < 11 ~ 1920, 
+                             sex == 1 & (age >= 11 & age < 15) ~ 2390,
+                             sex == 2 & (age >= 11 & age < 15) ~ 2180,
+                             sex == 1 & (age >= 15 & age < 18) ~ 3020,
+                             sex == 2 & (age >= 15 & age < 18) ~ 2400,
+                             sex == 1 & (age >= 18 & age < 25) ~ 2840,
+                             sex == 2 & (age >= 18 & age < 25) ~ 2280,
+                             sex == 1 & (age >= 25 & age < 51) ~ 2930,
+                             sex == 2 & (age >= 25 & age < 51) ~ 2170,
+                             sex == 1 & (age >= 51 & age < 71) ~ 2560,
+                             sex == 2 & (age >= 51 & age < 71) ~ 2070,
+                             sex == 1 & (age >= 71) ~ 2410,
+                             sex == 2 & (age >= 71) ~ 1960
+                           ))
 
 
-# TEE FOR ADULTS (Formula from table 5.2 in FAO/WHO/UNU (2004)):
-tee_calc <- tee_calc %>% 
-  mutate(BMR = case_when( # Firstly need to calculate BMR for different age categories:
-    sex == 1 & age >18 & age <= 30 ~ 15.057 * weight + 692.2,
-    sex == 1 & age >30 & age < 60 ~ 11.472 * weight + 873.1,
-    sex == 1 & age >= 60 ~ 11.711 * weight + 587.7,
-    sex == 2 & age >18 & age <= 30 ~ 14.818 * weight + 486.6,
-    sex == 2 & age >30 & age < 60 ~ 8.126 * weight + 845.6, 
-    sex == 2 & age >= 60 ~ 9.082 * weight + 658.5,
-    TRUE ~ NA)) %>% # Get TEE by multiplying BMR by PAL for over 18's: 
-  mutate(TEE = ifelse(age > 18, BMR * PAL, TEE)) # 
+# # TEE FOR ADULTS (Formula from table 5.2 in FAO/WHO/UNU (2004)):
+# tee_calc <- tee_calc %>% 
+#   mutate(BMR = case_when( # Firstly need to calculate BMR for different age categories:
+#     sex == 1 & age >18 & age <= 30 ~ 15.057 * weight + 692.2,
+#     sex == 1 & age >30 & age < 60 ~ 11.472 * weight + 873.1,
+#     sex == 1 & age >= 60 ~ 11.711 * weight + 587.7,
+#     sex == 2 & age >18 & age <= 30 ~ 14.818 * weight + 486.6,
+#     sex == 2 & age >30 & age < 60 ~ 8.126 * weight + 845.6, 
+#     sex == 2 & age >= 60 ~ 9.082 * weight + 658.5,
+#     TRUE ~ NA)) %>% # Get TEE by multiplying BMR by PAL for over 18's: 
+#   mutate(TEE = ifelse(age > 18, BMR * PAL, TEE)) # 
 
 afe_others <- tee_calc %>% 
   mutate(afe = TEE/afe_value)%>% # 1AFE = 2100kcal

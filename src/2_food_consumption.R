@@ -429,4 +429,4 @@ write.csv(sens_matching, paste0(path_to_data,"sens_matching.csv"))
 
 write_csv(sl_ml_targets,paste0(path_to_data,"sl_ml_targets_", Sys.Date(),".csv"))
 # 
-# rm(list = ls())
+rm(list = ls())
