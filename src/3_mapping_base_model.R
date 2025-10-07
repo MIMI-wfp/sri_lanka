@@ -249,7 +249,7 @@ all_plots <- create_and_save_plots()
 
 # 4. Access individual plots from the returned list
 all_plots$adm1_zn  # ADM1 zinc plot
-all_plots$adm2_fe  # ADM2 iron plot
+all_plots$adm2_zn  # ADM2 iron plot
 
 
 

@@ -1,6 +1,6 @@
 source("src/3_mapping_base_model.R")
 
-
+library(ggpmisc)
 
 
 climate_adm2 <- read_csv("data/climate_features_lka_19.csv")
@@ -52,11 +52,21 @@ for (i in mn_col_names) {
   for (j in clim_col_names) {
     print(c(i, j))
     
-    p1 <- adm2_inad %>%
+    
+    p1 <- 
+      adm2_inad %>%
       ggplot(aes(x = .data[[j]], y = .data[[i]])) +
       geom_point(aes(color = province), size = 2) +
       geom_smooth(method = "lm", se = FALSE) +
+      stat_poly_eq(
+        aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")),
+        formula = y ~ x,
+        parse = TRUE,
+        label.x.npc = "left",  # Position in normalized parent coordinates
+        label.y.npc = "top"
+      ) +
       ggtitle(paste("Scatterplot of", i, "vs", j))
+    
     
     clim_plots[[x]] <- p1
     

@@ -25,19 +25,19 @@ con <- dbConnect(RMySQL::MySQL(),
 #-------------------------------------------------------------------------------
 
 # READ DATA
-ml_targets <- read_csv("data/processed/sl_ml_targets_2025-07-11.csv")
+ml_targets <- read_csv("data/processed/sl_ml_targets_2025-10-06.csv")
 
 #-------------------------------------------------------------------------------
-
-
+# remove vehicle quantities
+dbExecute(con, "DELETE FROM ML_targets WHERE iso3 = 'LKA'")
 # vehicle_quantities
 dbWriteTable(con, name = "ML_targets", value = ml_targets, 
              append = TRUE, row.names = FALSE)
 
 
 ### test it's worked
-# read_lka_targets <- "SELECT * FROM ML_targets WHERE iso3 = 'LKA'"
-# DBI::dbGetQuery(con, read_lka_targets)
+read_lka_targets <- "SELECT * FROM ML_targets WHERE iso3 = 'LKA'"
+DBI::dbGetQuery(con, read_lka_targets)
 
 
 # DISCONNECT FROM DATABASE
