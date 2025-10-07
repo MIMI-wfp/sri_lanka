@@ -237,7 +237,11 @@ imputed_food <- impute_quantity(imputed_food, 1819,1812)
 
 
 imputed_food%>% 
-  filter(code == 1819)
+
+  filter(is.na(quantity))
+
+  # filter(code == 1819)
+
 
 
 
@@ -426,7 +430,15 @@ write.csv(hh_ai, paste0(path_to_data, "base_ai.csv"))
 write_rds(hh_ai, paste0(path_to_data, "base_ai.RDS"))
 
 write.csv(sens_matching, paste0(path_to_data,"sens_matching.csv"))
+# 
+# rm(list = ls())
+
 
 write_csv(sl_ml_targets,paste0(path_to_data,"sl_ml_targets_", Sys.Date(),".csv"))
+
 # 
 rm(list = ls())
+
+
+
+

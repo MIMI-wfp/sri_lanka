@@ -6,11 +6,18 @@ base_ai <- read_rds("data/processed/base_ai.RDS")
 
 # ------------------------------------------------------------------------------
 
-set.seed(123)
-data.df <- read.csv(here::here("data/processed", "sens_matching.csv"))
+set.seed(123)  # Use any number you prefer
+random_hhids <- sample(hh_info$hhid, size = 2000)
+  
+
+
+
+
 
 
 names(data.df)
+data.df <- data.df %>% filter(hhid %in% random_hhids)
+
 #food_list <- readxl::read_excel(here::here( "NSSO_INDB_20241023.xlsx"))
 
 
@@ -29,7 +36,7 @@ length(unique(data.df$hhid))
 
 # Selecting the nutrients 
 #vars <- c("VITA_RAE", "VITB12", "FOLDE", "ZN", "FE")
-vars <- names(data.df)[c(14,15,16,20,21)]
+vars <- names(data.df)[c(15,20)]
 
 # Getting the list of food sorted by most consumed (freq. (no. of HHs))
 food_list <- data.df %>% filter(!is.na(quantity_100g)) %>%
@@ -42,70 +49,54 @@ food_list <- data.df %>% filter(!is.na(quantity_100g)) %>%
 # A loop that generate a list of dataset w/ the mean, sd and median intakes
 # excluding one food item for the variables selected
 
-i = 1
-j=1
-test <- list()  
-# Creating an empty dataframe
-wilcox_test <- as.data.frame(matrix( ncol = 4))
 
 
-# Adding the baseline (no food removed)
-test[[1]] <- data.df %>% filter(!is.na(quantity_100g)) %>% 
-  # mutate(across(vars, ~as.numeric)) %>% 
-  group_by(hhid) %>%       
-  summarise(across(vars, list(Sum = sum), na.rm=TRUE, .names = "{.fn}.{.col}") ) %>% 
+test <- list()
+wilcox_test <- data.frame()
+
+# Baseline
+test[[1]] <- data.df %>%
+  filter(!is.na(quantity_100g)) %>%
+  group_by(hhid) %>%
+  summarise(across(all_of(vars), sum, na.rm = TRUE, .names = "Sum.{.col}")) %>%
   mutate(test_food = "baseline")
 
-for(i in 1:nrow(food_list)){
-  
-  n <- i+1
-  test[[n]] <- data.df %>% filter(!is.na(quantity_100g)) %>% 
-    filter(!code %in% food_list[i,1 ]) %>% 
-    group_by(hhid) %>%       
-    summarise(across(vars,  list(Sum=sum), 
-                     na.rm = TRUE, .names = "{.fn}.{.col}")) %>% 
-    # Adding a variable with the item excluded
-    mutate(test_food = paste0(food_list[i,1 ], "_", gsub(" ", "", food_list[i,2])))
+sum_vars <- grep("Sum.", names(test[[1]]), value = TRUE)
+
+for (i in 1:nrow(food_list)) {
+  n <- i + 1
+  test[[n]] <- data.df %>%
+    filter(!is.na(quantity_100g), !code %in% food_list[i, 1]) %>%
+    group_by(hhid) %>%
+    summarise(across(all_of(vars), sum, na.rm = TRUE, .names = "Sum.{.col}")) %>%
+    mutate(test_food = paste0(food_list[i, 1], "_", gsub(" ", "", food_list[i, 2])))
   
   print(n)
-  
-  sum_vars <- grep("Sum.", names(test[[1]]), value = TRUE)
-  
-  for(j in 1:length(sum_vars)){
-    
-    mod2=try(wilcox.test(log(as.numeric(unlist(test[[n]][, sum_vars[j]]))), 
-                         log(as.numeric(unlist(test[[1]][, sum_vars[j]])))),TRUE)
-    
-    if(isTRUE(class(mod2)=="try-error")) { next }
-    
-    else{
-      
-      x <- wilcox.test(log(as.numeric(unlist(test[[n]][, sum_vars[j]]))), 
-                       log(as.numeric(unlist(test[[1]][, sum_vars[j]]))))
-      
-      wilcox_test[nrow(wilcox_test)+1,]<- broom::tidy(x)
-      wilcox_test[nrow(wilcox_test), "test_food"] <- paste0(food_list[i,1 ], "_", gsub(" ", "", food_list[i,2]))
-      wilcox_test[nrow(wilcox_test), "test_nutrient"] <- sum_vars[j]
-      
-    }
+  for (j in seq_along(sum_vars)) {
+    try({
+      x <- wilcox.test(
+        log(as.numeric(unlist(test[[n]][[sum_vars[j]]]))) ,
+        log(as.numeric(unlist(test[[1]][[sum_vars[j]]])))
+      )
+      result <- broom::tidy(x)
+      result$test_food <- paste0(food_list[i, 1], "_", gsub(" ", "", food_list[i, 2]))
+      result$test_nutrient <- sum_vars[j]
+      wilcox_test <- bind_rows(wilcox_test, result)
+    }, silent = TRUE)
     print(j)
   }
-  
-  print(i)
-  
-  
 }
 
+
 # Saving the output into spreadsheet
-writexl::write_xlsx(test, 
-                    here::here("outputs/inter-output", paste0("sensitivity_outputb_", Sys.Date(), ".xlsx")))
+writexl::write_xlsx(test,here::here("outputs/inter-output", paste0("sensitivity_outputb_", Sys.Date(), ".xlsx")))
 
 names(wilcox_test)[1:4] <- names(broom::tidy(x))
 #names(t_test)[11:12] <- c("test_food","test_nutrient" )
 
 
 # Saving results form loop
-write.csv(wilcox_test, here::here( "inter-output", paste0("wilcox_test_food_nutrient_", Sys.Date(), ".csv")))
+write.csv(wilcox_test, here::here( "data/inter-output", paste0("wilcox_test_food_nutrient_", Sys.Date(), ".csv")))
 
 p.values <- wilcox_test %>% dplyr::filter(!is.na(statistic)) %>% 
   select(p.value, test_food, test_nutrient) %>% 
@@ -113,16 +104,18 @@ p.values <- wilcox_test %>% dplyr::filter(!is.na(statistic)) %>%
                      values_from = "p.value") 
 
 # Saving results p.values per nutrient form loop
+
 write.csv(p.values, here::here( "outputs/inter-output", paste0("p.values_wilcox_food_nutrient_",
+
                                                        Sys.Date(), ".csv")))
 
 ## Graph (2) ----------
 
 names(test[[1]])
-j = 3
+j = 2
 names(test[[1]])[j]
 
-df <- as.data.frame(matrix( ncol = 4))
+df <- as.data.frame(matrix( ncol = 2))
 
 for(i in 1:length(test)){
   
@@ -150,3 +143,9 @@ df %>% dplyr::mutate(p.value = ifelse(scenario %in% p.items, "YES", "NO")) %>%
   labs(y = names(test[[1]])[j]) +
   #  theme(axis.text = element_text(angle = 90)) 
   coord_flip() 
+
+
+df %>% 
+  arrange(Median)
+
+
