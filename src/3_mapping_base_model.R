@@ -130,7 +130,7 @@ adm2_average <- survey_object %>%
   left_join(fe_full_prob(df, adm2, survey_wgt) %>% 
               rename(fe_inad = fe_mg_prop),by = c("adm2" = "subpopulation"))
 
-
+write_csv(adm2_average, "data/processed/adm2_average.csv")
 # connect to the shapefile
 
 adm2_sp <- adm2_average %>% 

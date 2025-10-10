@@ -6,8 +6,8 @@ import statsmodels.api as sm
 import os
 
 # Load data
-climate_adm2 = pd.read_csv("data/climate_features_lka_19.csv")
-ml_targets = pd.read_csv("data/processed/sl_ml_targets_2025-07-11.csv")
+climate_adm2 = pd.read_csv("data/raw/features/climate_features_lka_19.csv")
+ml_targets = pd.read_csv("data/processed/sl_ml_targets_2025-10-06.csv")
 hh_info = pd.read_csv("data/processed/hh_info.csv")
 adm2_average = pd.read_csv("data/processed/adm2_average.csv")
 
@@ -75,8 +75,10 @@ for i in mn_col_names:
         r_squared = model.rsquared
         intercept, slope = model.params
 
+        pearson_r = model.params[1] / abs(model.params[1]) * r_squared**0.5
+
         # Annotate with R² and equation
-        eq_label = f"$y = {intercept:.2f} + {slope:.2f}x$\n$R^2 = {r_squared:.2f}$"
+        eq_label = f"$y = {intercept:.2f} + {slope:.2f}x$\n$R^2 = {r_squared:.2f}$\n$Pearson = {pearson_r:.2f}$"
         plt.text(0.05, 0.95, eq_label, transform=plt.gca().transAxes,
                  verticalalignment='top', horizontalalignment='left', fontsize=10)
 
