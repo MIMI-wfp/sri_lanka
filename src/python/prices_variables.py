@@ -6,7 +6,7 @@ import statsmodels.api as sm
 import os
 
 # Load data
-prices_data = pd.read_csv('data/raw/features/Prices-Export-Wed Oct 08 2025 11_30_23 GMT+0200 (Central European Summer Time).csv')
+prices_data = pd.read_csv('data/raw/features/prices_2019_15102025.csv')
 ml_targets = pd.read_csv("data/processed/sl_ml_targets_2025-10-06.csv")
 hh_info = pd.read_csv("data/processed/hh_info.csv")
 adm2_average = pd.read_csv("data/processed/adm2_average.csv")
@@ -14,9 +14,24 @@ adm2_average = pd.read_csv("data/processed/adm2_average.csv")
 # filter out the forecasted data
 prices_data = prices_data[prices_data['Data Type'] != "Forecast"]
 prices_data
-# get long grain rice
-prices_data = prices_data.groupby(['Admin 2', 'Commodity']).agg({'Price': "mean"}).reset_index()
-rice_price = prices_data[prices_data['Commodity'] == "Rice (long grain)"]
+
+# get all commodities
+prices_data = prices_data.groupby(['Admin 2', 'Commodity']).agg({'Price': "median"}).reset_index()
+prices_data = prices_data.pivot(index="Admin 2", columns="Commodity", values="Price")
+
+# Plot heatmap
+plt.figure(figsize=(10, 6))
+sns.heatmap(prices_data, annot=True,fmt=".2f", cmap="Blues")
+plt.title("Prices of Commodities per Admin 2")
+plt.xlabel("Commodity")
+plt.ylabel("Admin 2")
+plt.tight_layout()
+plt.show()
+
+#
+prices_data.columns = [str(col) for col in prices_data.columns]
+prices_data = prices_data.reset_index()
+
 
 # Define the district-to-HIES code mapping
 districts = [
@@ -40,11 +55,11 @@ districts = [
 
 # Convert to DataFrame
 df_districts = pd.DataFrame(districts)
-rice_price=rice_price.merge(df_districts, on='Admin 2')
+prices_data=prices_data.merge(df_districts, on='Admin 2')
 
 adm2_inad = (
     adm2_average[['adm2', 'energy_kcal_q50'] + [col for col in adm2_average.columns if col.endswith('_inad')]]
-    .merge(rice_price, on='adm2', how='left')
+    .merge(prices_data, on='adm2', how='left')
 )
 
 
@@ -57,21 +72,23 @@ adm2_inad['province'] = (adm2_inad['adm2'] // 10).round().map(province_map)
 
 # Define variable groups
 mn_col_names = list(adm2_inad.columns[2:8])
-price_col_names = adm2_inad.columns[9]
+price_col_names = list(adm2_inad.columns[11:15])
 
 # Create output directory
 os.makedirs("outputs/plots/prices", exist_ok=True)
 
+
+
 # Generate plots
 for i in mn_col_names:
-  
-        print(f"Plotting {i} vs Rice price")
+    for j in price_col_names:
+        print(f"Plotting {i} vs {j}")
         plt.figure(figsize=(8, 6))
-        sns.scatterplot(data=adm2_inad, x='Price', y=i, hue='province', s=50)
-        sns.regplot(data=adm2_inad, x='Price', y=i, scatter=False, color='black')
+        sns.scatterplot(data=adm2_inad, x=j, y=i, hue='province', s=50)
+        sns.regplot(data=adm2_inad, x=j, y=i, scatter=False, color='black')
 
         
-        X = sm.add_constant(adm2_inad['Price'])
+        X = sm.add_constant(adm2_inad[j])
         y = adm2_inad[i]
 
         # Combine X and y into a single DataFrame for cleaning
@@ -97,9 +114,9 @@ for i in mn_col_names:
         plt.text(0.05, 0.95, eq_label, transform=plt.gca().transAxes,
                  verticalalignment='top', horizontalalignment='left', fontsize=10)
 
-        plt.title(f"Scatterplot of {i} vs price")
+        plt.title(f"Scatterplot of {i} vs {j}")
         plt.tight_layout()
-        plt.savefig(f"outputs/plots/prices/{i}_price.png")
+        plt.savefig(f"outputs/plots/prices/{i}_{j}.png")
         plt.close()
 
 
