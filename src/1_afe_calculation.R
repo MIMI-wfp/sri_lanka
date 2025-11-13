@@ -1,5 +1,5 @@
 ### Reading in SL HIES 2019
-
+rm(list = ls())
 rq_packages <- c("tidyverse", "srvyr")
 
 installed_packages <- rq_packages %in% rownames(installed.packages())
@@ -128,15 +128,25 @@ rm(hh_with_u2s)
 # energy requirements for u2s --------------------------------------------------
 u2s <- u2s %>%
   mutate(TEE = case_when( # https://www.mri.gov.lk/wp-content/uploads/2024/02/Dietary-Referance-Intakes-for-Sri-Lanka.pdf
-    age_month <= 6 ~ 0,   # only breast feeding - no food intake
-    age_month >= 7 & age_month <= 12 ~ 660,  # energy from food is 76 kcal per day for 3-5 months of age
-    age_month >= 12 ~ 990 # 746 kcal per day for those aged 12-months - 2years
-  )) # 746 kcal for those without a birth certificate, assuming they can be older
+    age_month < 3 ~ 0,   # only breast feeding - no food intake
+    age_month >= 3 & age_month < 6  ~ 76,  # 
+    age_month >= 6 & age_month < 9  ~ 269,  # 
+    age_month >= 9 & age_month < 12 ~ 451,
+    age_month >= 12 ~ 746 # 746 kcal per day for those aged 12-months - 2years
+  ),
+  weight = case_when( # https://www.mri.gov.lk/wp-content/uploads/2024/02/Dietary-Referance-Intakes-for-Sri-Lanka.pdf
+    age_month < 3 ~ 4.35,   # only breast feeding - no food intake
+    age_month >= 3 & age_month < 6  ~ 6.7,  # 
+    age_month >= 6 & age_month < 9  ~ 7.95,  # 
+    age_month >= 9 & age_month < 12 ~ 8.85,
+    age_month >= 12 ~ 10.55
+  ))# 746 kcal for those without a birth certificate, assuming they can be older
 
 # AFE calculation for children below 2 years old:
 afeu2 <- u2s %>%
   mutate(afe = TEE/afe_value) %>% # 1AFE = 2100kcal
-  select(hhid, person_serial_no, afe)
+  select(hhid, person_serial_no, afe, weight, TEE, age_month)
+
 
 # breastfeeding women
 
@@ -145,6 +155,7 @@ breastfeeding <- demographics %>%
            age > 15 & age < 45 &
            u2 == 1
   ) %>% 
+  group_by(hhid) |> 
   slice(1)
 
 
@@ -160,7 +171,7 @@ afe_breastfeeding <- breastfeeding %>%
   ) %>% 
   mutate(TEE = ifelse(is.na(BMR), TEE +483, BMR * PAL + 483),
          afe = TEE/afe_value) %>% 
-  select(hhid, person_serial_no, afe)
+  select(hhid, person_serial_no, weight, afe, TEE,age)
 
 
 
@@ -216,7 +227,7 @@ tee_calc <- tee_calc %>%
 
 afe_others <- tee_calc %>% 
   mutate(afe = TEE/afe_value)%>% # 1AFE = 2100kcal
-  select(hhid, person_serial_no, afe)
+  select(hhid, person_serial_no, afe, weight, TEE,age)
 
 rm(tee_calc)
 
@@ -343,7 +354,7 @@ hh_info <- HH_expenditure_hh_Income %>%
                  per_capita_expenditure<quantile(per_capita_expenditure,probs = seq(0,1,0.2), na.rm = TRUE)[[4]]~
                    paste(res,"3"),
                  per_capita_expenditure<quantile(per_capita_expenditure,probs = seq(0,1,0.2), na.rm = TRUE)[[5]]~
-                   paste0(res,"4"),
+                   paste(res,"4"),
                  per_capita_expenditure<=quantile(per_capita_expenditure,probs = seq(0,1,0.2), na.rm = TRUE)[[6]]~
                    paste(res,"5"),
                )) %>% 
@@ -369,6 +380,7 @@ hh_info <- HH_expenditure_hh_Income %>%
 
 ################################################################################
 path_to_save = "data/processed/"
+write_csv(afe_all, paste0(path_to_save,"hh_energy_requirements.csv"))
 write_csv(hh_info, paste0(path_to_save, "hh_info.csv"    ))
 saveRDS(hh_info, paste0(path_to_save, "hh_info.RDS"    ))
 
