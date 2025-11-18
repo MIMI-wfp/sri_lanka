@@ -150,5 +150,6 @@ adm2_shapefile <- adm2_match %>%
 ################################################################################
 rm(lka_adm1,lka_adm2,adm1_match,adm2_match)
 
+st_write(adm2_shapefile, 'data/processed/shapefile/adm2_shapefile.shp')
 
 

@@ -1,5 +1,6 @@
 ### Reading in SL HIES 2019
 
+
 rq_packages <- c("tidyverse", "srvyr")
 
 installed_packages <- rq_packages %in% rownames(installed.packages())
@@ -74,7 +75,7 @@ get_har <- function(){
   return(h_ar)
 }
 har <- get_har() %>% 
-  filter(iso3 == "BEN")
+  filter(iso3 == "IND")
 
 
 
@@ -391,6 +392,7 @@ calc_nar <- function(h_ar, comparison){return(ifelse(comparison<h_ar,comparison/
 sl_ml_targets <- hh_ai %>% 
   select(hhid,vita_rae_mcg,folate_mcg,vitb12_mcg,
          fe_mg,zn_mg) %>% 
+  left_join(hh_info |> select(hhid, month)) |> 
   mutate(
     vita_nar = calc_nar(h_ar$vita_rae_mcg, vita_rae_mcg),
     fol_nar = calc_nar(h_ar$folate_mcg,folate_mcg),
@@ -411,7 +413,7 @@ sl_ml_targets <- hh_ai %>%
   #        vb12_ai = vitb12_mcg,
   #        fe_ai = fe_mg, 
   #        zn_ai = zn_mg) %>% 
-  select(iso3,survey,hhid,vita_rae_mcg,folate_mcg,vitb12_mcg,
+  select(iso3,survey,hhid,month,vita_rae_mcg,folate_mcg,vitb12_mcg,
          fe_mg,zn_mg,
          overall_mar) 
   

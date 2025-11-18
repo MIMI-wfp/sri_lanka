@@ -7,7 +7,7 @@ import os
 
 # Load data
 climate_adm2 = pd.read_csv("data/raw/features/climate_features_lka_19.csv")
-ml_targets = pd.read_csv("data/processed/sl_ml_targets_2025-10-06.csv")
+ml_targets = pd.read_csv("data/processed/sl_ml_targets_2025-11-13.csv")
 hh_info = pd.read_csv("data/processed/hh_info.csv")
 adm2_average = pd.read_csv("data/processed/adm2_average.csv")
 
@@ -47,42 +47,44 @@ clim_col_names = list(adm2_inad.columns[8:11])
 # Create output directory
 os.makedirs("outputs/plots/climate", exist_ok=True)
 
-# Generate plots
-for i in mn_col_names:
-    for j in clim_col_names:
-        print(f"Plotting {i} vs {j}")
-        plt.figure(figsize=(8, 6))
-        sns.scatterplot(data=adm2_inad, x=j, y=i, hue='province', s=50)
-        sns.regplot(data=adm2_inad, x=j, y=i, scatter=False, color='black')
+# # Generate plots
+# for i in mn_col_names:
+#     for j in clim_col_names:
+#         print(f"Plotting {i} vs {j}")
+#         plt.figure(figsize=(8, 6))
+#         sns.scatterplot(data=adm2_inad, x=j, y=i, hue='province', s=50)
+#         sns.regplot(data=adm2_inad, x=j, y=i, scatter=False, color='black')
 
         
-        X = sm.add_constant(adm2_inad[j])
-        y = adm2_inad[i]
+#         X = sm.add_constant(adm2_inad[j])
+#         y = adm2_inad[i]
 
-        # Combine X and y into a single DataFrame for cleaning
-        data = pd.concat([X, y], axis=1)
+#         # Combine X and y into a single DataFrame for cleaning
+#         data = pd.concat([X, y], axis=1)
 
-        # Remove rows with NaN or inf values
-        data_clean = data.replace([np.inf, -np.inf], np.nan).dropna()
+#         # Remove rows with NaN or inf values
+#         data_clean = data.replace([np.inf, -np.inf], np.nan).dropna()
 
-        # Separate cleaned X and y
-        X_clean = data_clean.iloc[:, :-1]
-        y_clean = data_clean.iloc[:, -1]
+#         # Separate cleaned X and y
+#         X_clean = data_clean.iloc[:, :-1]
+#         y_clean = data_clean.iloc[:, -1]
 
-        # Fit the model
-        model = sm.OLS(y_clean, X_clean).fit()
+#         # Fit the model
+#         model = sm.OLS(y_clean, X_clean).fit()
 
-        r_squared = model.rsquared
-        intercept, slope = model.params
+#         r_squared = model.rsquared
+#         intercept, slope = model.params
 
-        pearson_r = model.params[1] / abs(model.params[1]) * r_squared**0.5
+#         pearson_r = model.params[1] / abs(model.params[1]) * r_squared**0.5
 
-        # Annotate with R² and equation
-        eq_label = f"$y = {intercept:.2f} + {slope:.2f}x$\n$R^2 = {r_squared:.2f}$\n$Pearson = {pearson_r:.2f}$"
-        plt.text(0.05, 0.95, eq_label, transform=plt.gca().transAxes,
-                 verticalalignment='top', horizontalalignment='left', fontsize=10)
+#         # Annotate with R² and equation
+#         eq_label = f"$y = {intercept:.2f} + {slope:.2f}x$\n$R^2 = {r_squared:.2f}$\n$Pearson = {pearson_r:.2f}$"
+#         plt.text(0.05, 0.95, eq_label, transform=plt.gca().transAxes,
+#                  verticalalignment='top', horizontalalignment='left', fontsize=10)
 
-        plt.title(f"Scatterplot of {i} vs {j}")
-        plt.tight_layout()
-        plt.savefig(f"outputs/plots/climate/{i}_{j}.png")
-        plt.close()
+#         plt.title(f"Scatterplot of {i} vs {j}")
+#         plt.tight_layout()
+#         plt.savefig(f"outputs/plots/climate/{i}_{j}.png")
+#         plt.close()
+
+
