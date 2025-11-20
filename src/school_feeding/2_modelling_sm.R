@@ -178,6 +178,8 @@ ear_df <- data.frame(
   EAR       = c(8, 110, 1, 10, 160, 1, 15.5, 210, 1.5)
 )
 
+ear_df <- ear_df %>%
+  mutate(age_group = factor(age_group, levels = c("4-6", "7-10", "11-13")))
 # Add nutrient_group and age_group to EAR data
 ear_df <- ear_df |>
   mutate(nutrient_group = case_when(
@@ -185,64 +187,86 @@ ear_df <- ear_df |>
     str_starts(nutrient, "folate") ~ "Folate",
     str_starts(nutrient, "vitb12") ~ "Vitamin B12"
   ),
-  age_group = case_when(
+  age_group = factor(case_when(
     age_start == 5.5 & age_end == 6.5 ~ "4-6",
     age_start == 6.5 & age_end == 10.5 ~ "7-10",
     age_start == 10.5 & age_end == 13.5 ~ "11-13"
   ))
+)
+
+ear_df <- ear_df %>%
+  mutate(age_group = factor(age_group, levels = c("4-6", "7-10", "11-13")))
 
 # Main plot
+
+
+
 sm_nofort |>
   left_join(sm_fort) |>
-  select(hhid, uniqueid, age_y,
-         starts_with("fe_"),
-         starts_with("folate_"),
-         starts_with("vitb12_mcg")) |>
-  pivot_longer(cols = c(starts_with("fe_"),
-                        starts_with("folate_"),
-                        starts_with("vitb12_mcg")),
-               names_to = "nutrient",
-               values_to = "value") |>
-  mutate(age_group = case_when(
-    age_y %in% 6 ~ "4-6",
-    age_y %in% 7:10 ~ "7-10",
-    age_y %in% 11:13 ~ "11-13",
-    TRUE ~ "Other"
-  ),
-  age_group = factor(age_group, levels = c("4-6", "7-10", "11-13")),
-  nutrient_group = case_when(
-    str_starts(nutrient, "fe_") ~ "Iron",
-    str_starts(nutrient, "folate_") ~ "Folate",
-    str_starts(nutrient, "vitb12_mcg") ~ "Vitamin B12"
-  ),
-  color_group = case_when(
-    str_ends(nutrient, "_sm_fort") ~ "Household meal + Fortfied school meal",
-    str_ends(nutrient, "_sm") ~ "Household meal + school meal",
-    TRUE ~ "Household meal only"
-  )) |>
+  select(
+    hhid, uniqueid, age_y,
+    starts_with("fe_"),
+    starts_with("folate_"),
+    starts_with("vitb12_mcg")
+  ) |>
+  pivot_longer(
+    cols = c(
+      starts_with("fe_"),
+      starts_with("folate_"),
+      starts_with("vitb12_mcg")
+    ),
+    names_to = "nutrient",
+    values_to = "value"
+  ) |>
+  mutate(
+    # Age group classification
+    age_group = case_when(
+      age_y %in% 6 ~ "4-6",
+      age_y %in% 7:10 ~ "7-10",
+      age_y %in% 11:13 ~ "11-13",
+      TRUE ~ "Other"
+    ),
+    age_group = factor(age_group, levels = c("4-6", "7-10", "11-13")),
+
+    # Nutrient group classification
+    nutrient_group = case_when(
+      str_starts(nutrient, "fe_") ~ "Iron",
+      str_starts(nutrient, "folate_") ~ "Folate",
+      str_starts(nutrient, "vitb12_mcg") ~ "Vitamin B12"
+    ),
+    nutrient_group = factor(nutrient_group, levels = c("Iron", "Folate", "Vitamin B12")), # ✅ enforce order
+
+    # Color group classification
+    color_group = case_when(
+      str_ends(nutrient, "_sm_fort") ~ "Household meal + Fortfied school meal",
+      str_ends(nutrient, "_sm") ~ "Household meal + school meal",
+      TRUE ~ "Household meal only"
+    )
+  ) |>
   ggplot(aes(x = value, y = age_group, fill = color_group)) +
   geom_density_ridges(alpha = 0.5, position = "identity", scale = 0.7) +
   facet_wrap(~ nutrient_group, scales = "free_x") +
- 
-
-
-  geom_segment(data = ear_df,
-               aes(x = EAR, xend = EAR,
-                   y = as.numeric(factor(age_group)),
-                   yend = as.numeric(factor(age_group)) + 0.7),
-               inherit.aes = FALSE,
-               color = "red", size = 0.8)+
-
-
-
-  scale_fill_manual(values = c("Household meal only" = "#008EB2",
-                                "Household meal + school meal" = "#039249",
-                                "Household meal + Fortfied school meal" = "#E3002B")) +
+  geom_segment(
+    data = ear_df,
+    aes(
+      x = EAR, xend = EAR,
+      y = as.numeric(factor(age_group)),
+      yend = as.numeric(factor(age_group)) + 0.7
+    ),
+    inherit.aes = FALSE,
+    color = "red", size = 0.8
+  ) +
+  scale_fill_manual(values = c(
+    "Household meal only" = "#008EB2",
+    "Household meal + school meal" = "#039249",
+    "Household meal + Fortfied school meal" = "#E3002B"
+  )) +
   theme_ridges() +
-  labs(x = "Total daily apparent intake (mg or µg)", y = "Age Group", fill = "Type")
-
-
-
+  labs(
+    x = "Total daily apparent intake (mg or µg)",
+    y = "Age Group",
+    fill = "Type"
+  )
 
 
 
