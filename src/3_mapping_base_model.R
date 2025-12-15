@@ -9,6 +9,7 @@ base_ai <- read_rds("data/processed/base_ai.RDS")
 # 
 # Sys.getenv()
 
+
 # connect to database
 
 # 
