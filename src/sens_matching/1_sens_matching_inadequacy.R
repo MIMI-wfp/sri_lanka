@@ -112,7 +112,6 @@ for (i in 1:nrow(food_list)) {
     rowwise() %>%
     ungroup()
   
-  ## to do ## add in calcuation of inadequacy 
   
   print(n)
   
