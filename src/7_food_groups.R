@@ -31,6 +31,7 @@ rm(list= c("rq_packages", "installed_packages"))
 # READ DATA:
 hh_information <- read_rds("data/processed/hh_info.RDS")
 food_groups <- read_csv("data/food_group_map.csv") |> rename(alternative_group = mdd_w)
+
 food_consumption <- read_csv("data/processed/food_consumption.csv")
 fc_table <- readxl::read_xlsx("C:/Users/gabriel.battcock/OneDrive - World Food Programme/General - MIMI Project/Countries/Sri Lanka/data/sri_lanka_food_matches.xlsx", 
                             sheet = 1)
@@ -116,7 +117,11 @@ energy_intake_grouped <- energy_intake_grouped |>
     food_group_new == "sugar" ~ "Sugars",
     food_group_new == "other" ~ "Other foods",
     food_group_new == "nutritious_foods" ~ "Nutritious foods"
-  ))
+  )) %>% 
+  group_by (food_group_new) %>% 
+  mutate(energy_pct = sum(energy_pct)) %>% 
+  distinct(food_group_new, .keep_all = T) %>% 
+  ungroup() 
 
 # Reorder factor levels in reverse order: 
 # energy_intake_grouped$food_group_new <- factor(
@@ -179,26 +184,26 @@ animal_source_foods <- animal_source_foods |>
   ))
 
 # BREAKDOWN FOR VITAMIN A RICH FRUIT AND VEGETABLES:
-vita_fruit_veg <- nutrient_intake |> 
-  filter(alternative_group == "Vitamin A rich fruit and vegetables") |> 
-  left_join(food_groups |> 
-    dplyr::select(item_code, further_breakdown), by = "item_code") |>
-  group_by(further_breakdown) |> 
-  summarise(
-    total_energy_kcal = sum(energy_kcal, na.rm = TRUE),
-    .groups = "drop"
-  ) |> 
-  mutate(energy_pct = (total_energy_kcal / overall_energy) * 100) |> 
-  arrange(desc(energy_pct))
-
-# Rename groups:
-vita_fruit_veg <- vita_fruit_veg |> 
-  mutate(further_breakdown = case_when(
-    further_breakdown == "vita_fruit" ~ "Vitamin A rich fruit",
-    further_breakdown == "vita_veg" ~ "Vitamin A rich vegetables",
-    further_breakdown == "green_leafy_veg" ~ "Green leafy vegetables",
-    TRUE ~ further_breakdown
-  ))
+# vita_fruit_veg <- nutrient_intake |> 
+#   filter(alternative_group == "Vitamin A rich fruit and vegetables") |> 
+#   left_join(food_groups |> 
+#     dplyr::select(item_code, further_breakdown), by = "item_code") |>
+#   group_by(further_breakdown) |> 
+#   summarise(
+#     total_energy_kcal = sum(energy_kcal, na.rm = TRUE),
+#     .groups = "drop"
+#   ) |> 
+#   mutate(energy_pct = (total_energy_kcal / overall_energy) * 100) |> 
+#   arrange(desc(energy_pct))
+# 
+# # Rename groups:
+# vita_fruit_veg <- vita_fruit_veg |> 
+#   mutate(further_breakdown = case_when(
+#     further_breakdown == "vita_fruit" ~ "Vitamin A rich fruit",
+#     further_breakdown == "vita_veg" ~ "Vitamin A rich vegetables",
+#     further_breakdown == "green_leafy_veg" ~ "Green leafy vegetables",
+#     TRUE ~ further_breakdown
+#   ))
 
 #------------------------------------------------------------------------------- 
 
@@ -210,23 +215,30 @@ main_palette <- c(
   "Edible oils"             = "#F0E442", # yellow
   "Sugars"           = "#CC79A7", # reddish purple
   "Other foods"           = "#999999", # grey
-  "Nutritious foods" = "#009E73"  # bluish green
-)
+  "Nutritious foods" = "#009E73" ) # bluish green
+
+
 
 nutritious_colors <- colorRampPalette(c("#D9F0E6", "#009E73"))(length(unique(nutritious_breakdown$food_group)))
 names(nutritious_colors) <- levels(nutritious_breakdown$food_group)
 
-asf_colors <- colorRampPalette(c("#b8b7b7ff", "#c73b03ff"))(length(unique(animal_source_foods$further_breakdown)))
-names(asf_colors) <- levels(animal_source_foods$further_breakdown)
+# asf_colors <- colorRampPalette(c("#b8b7b7ff", "#c73b03ff"))(length(unique(animal_source_foods$further_breakdown)))
+# names(asf_colors) <- levels(animal_source_foods$further_breakdown)
+# 
+# vita_colors <- colorRampPalette(c("#f7d9a3ff", "#faa506ff"))(length(unique(vita_fruit_veg$further_breakdown)))
+# names(vita_colors) <- levels(vita_fruit_veg$further_breakdown)
 
-vita_colors <- colorRampPalette(c("#f7d9a3ff", "#faa506ff"))(length(unique(vita_fruit_veg$further_breakdown)))
-names(vita_colors) <- levels(vita_fruit_veg$further_breakdown)
+
 
 # Main plot:
 
+
 energy_intake_grouped <- energy_intake_grouped %>%
-  arrange(desc(energy_pct)) %>%
-  mutate(food_group_new = food_group_new, levels = (food_group_new))
+  arrange((energy_pct)) %>% 
+  mutate(food_group_new = factor(food_group_new, levels = unique(food_group_new)))
+
+
+energy_intake_grouped
 
 levels(energy_intake_grouped$food_group_new)
 main_plot <- ggplot(energy_intake_grouped, aes(x = 1, y = energy_pct, fill = food_group_new)) +
@@ -282,66 +294,66 @@ combined <- plot_grid(
 
 combined
 
-# Save: 
-# ggsave(
-#   combined,
-#   filename = "SPECIFY FILE NAME AND PATH HERE",
-#   width = 10, height = 8, dpi = 300
-# )
+# Save:
+ggsave(
+  combined,
+  filename = "outputs/base_models/food_groups_nutritious_foods.png",
+  width = 10, height = 8, dpi = 300
+)
 
-# ANIMAL SOURCE FOODS BREAKDOWN PLOT:
-asf_plot <- ggplot(animal_source_foods, aes(x = 1, y = energy_pct, fill = further_breakdown)) +
-  geom_bar(stat = "identity", width = 0.6) +
-  geom_text(aes(label = paste0(round(energy_pct, 1), "%")),
-            position = position_stack(vjust = 0.5), color = "black", size = 3) +
-  geom_hline(yintercept = 0, color = "black", size = 0.5) +
-  coord_flip() +
-  scale_y_continuous(labels = scales::percent_format(scale = 1)) +
-  scale_fill_manual(values = asf_colors) +
-  labs(title = NULL, x = NULL, y = NULL, fill = NULL) +
-  guides(fill = guide_legend(reverse = TRUE)) +
-  theme_minimal(base_size = 12) +
-  theme(
-    panel.grid = element_blank(),
-    axis.text.y = element_blank(),
-    axis.ticks.y = element_blank(),
-    legend.position = "bottom",
-    axis.line.x = element_line(color = "black", size = 0.5)
-  ) +
-  ggtitle(paste0("% dietary energy contributions of animal source foods for ", sub_population, " households"))
-
-asf_plot
-
-ggsave(asf_plot,
-       filename = "figures/food_groups_asf_all.png",
-       width = 8, height = 6, dpi = 300)
-
-# VITAMIN A RICH FRUIT AND VEGETABLES BREAKDOWN PLOT:
-vita_plot <- ggplot(vita_fruit_veg, aes(x = 1, y = energy_pct, fill = further_breakdown)) +
-  geom_bar(stat = "identity", width = 0.6) +
-  geom_text(aes(label = paste0(round(energy_pct, 1), "%")),
-            position = position_stack(vjust = 0.5), color = "black", size = 3) +
-  geom_hline(yintercept = 0, color = "black", size = 0.5) +
-  coord_flip() +
-  scale_y_continuous(labels = scales::percent_format(scale = 1)) +
-  scale_fill_manual(values = vita_colors) +
-  labs(title = NULL, x = NULL, y = NULL, fill = NULL) +
-  guides(fill = guide_legend(reverse = TRUE)) +
-  theme_minimal(base_size = 12) +
-  theme(
-    panel.grid = element_blank(),
-    axis.text.y = element_blank(),
-    axis.ticks.y = element_blank(),
-    legend.position = "bottom",
-    axis.line.x = element_line(color = "black", size = 0.5)
-  ) + 
-  ggtitle(paste0("% dietary energy contributions of vitamin A rich foods for ", sub_population, " households"))
-
-vita_plot
-
-ggsave(vita_plot,
-       filename = "figures/food_groups_vita_all.png",
-       width = 8, height = 6, dpi = 300)
+# # ANIMAL SOURCE FOODS BREAKDOWN PLOT:
+# asf_plot <- ggplot(animal_source_foods, aes(x = 1, y = energy_pct, fill = further_breakdown)) +
+#   geom_bar(stat = "identity", width = 0.6) +
+#   geom_text(aes(label = paste0(round(energy_pct, 1), "%")),
+#             position = position_stack(vjust = 0.5), color = "black", size = 3) +
+#   geom_hline(yintercept = 0, color = "black", size = 0.5) +
+#   coord_flip() +
+#   scale_y_continuous(labels = scales::percent_format(scale = 1)) +
+#   scale_fill_manual(values = asf_colors) +
+#   labs(title = NULL, x = NULL, y = NULL, fill = NULL) +
+#   guides(fill = guide_legend(reverse = TRUE)) +
+#   theme_minimal(base_size = 12) +
+#   theme(
+#     panel.grid = element_blank(),
+#     axis.text.y = element_blank(),
+#     axis.ticks.y = element_blank(),
+#     legend.position = "bottom",
+#     axis.line.x = element_line(color = "black", size = 0.5)
+#   ) +
+#   ggtitle(paste0("% dietary energy contributions of animal source foods for ", sub_population, " households"))
+# 
+# asf_plot
+# 
+# ggsave(asf_plot,
+#        filename = "outputs/base_models/food_groups_asf_all.png",
+#        width = 8, height = 6, dpi = 300)
+# 
+# # VITAMIN A RICH FRUIT AND VEGETABLES BREAKDOWN PLOT:
+# vita_plot <- ggplot(vita_fruit_veg, aes(x = 1, y = energy_pct, fill = further_breakdown)) +
+#   geom_bar(stat = "identity", width = 0.6) +
+#   geom_text(aes(label = paste0(round(energy_pct, 1), "%")),
+#             position = position_stack(vjust = 0.5), color = "black", size = 3) +
+#   geom_hline(yintercept = 0, color = "black", size = 0.5) +
+#   coord_flip() +
+#   scale_y_continuous(labels = scales::percent_format(scale = 1)) +
+#   scale_fill_manual(values = vita_colors) +
+#   labs(title = NULL, x = NULL, y = NULL, fill = NULL) +
+#   guides(fill = guide_legend(reverse = TRUE)) +
+#   theme_minimal(base_size = 12) +
+#   theme(
+#     panel.grid = element_blank(),
+#     axis.text.y = element_blank(),
+#     axis.ticks.y = element_blank(),
+#     legend.position = "bottom",
+#     axis.line.x = element_line(color = "black", size = 0.5)
+#   ) + 
+#   ggtitle(paste0("% dietary energy contributions of vitamin A rich foods for ", sub_population, " households"))
+# 
+# vita_plot
+# 
+# ggsave(vita_plot,
+#        filename = "outputs/base_models/food_groups_vita_all.png",
+#        width = 8, height = 6, dpi = 300)
 
 
 #-------------------------------------------------------------------------------
@@ -349,3 +361,4 @@ ggsave(vita_plot,
 ################################################################################
 ################################ END OF SCRIPT #################################
 ################################################################################
+
