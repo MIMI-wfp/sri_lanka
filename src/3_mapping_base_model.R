@@ -104,13 +104,13 @@ fe_full_prob(df, adm1, survey_wgt)
 
 
 survey_object <- hh_info %>% 
-  left_join(base_ai,by = 'hhid') %>% 
+  left_join(sl_ml_targets_2025_07_16 %>% mutate(hhid = as.character(hhid)),by = 'hhid') %>% 
   mutate(
     vita_inad = calc_inad(h_ar$vita_rae_mcg[1], vita_rae_mcg),
     zn_inad = calc_inad(h_ar$zn_mg[1], zn_mg),
     folate_inad = calc_inad(h_ar$folate_mcg[1], folate_mcg),
-    thia_inad = calc_inad(h_ar$thia_mg[1], thia_mg),
-    vitb12_inad = calc_inad(h_ar$vitb12_mcg, vitb12_mcg)
+    # thia_inad = calc_inad(h_ar$thia_mg[1], thia_mg),
+    vitb12_inad = calc_inad(h_ar$vitb12_mcg[1], vitb12_mcg)
     ) %>% 
   as_survey_design(ids = ea, weights = survey_wgt, strata = res) 
 

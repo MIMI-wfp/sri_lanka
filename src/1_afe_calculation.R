@@ -328,52 +328,53 @@ hh_info <- HH_expenditure_hh_Income %>%
               group_by(hhid) %>%  slice(1),by = 'hhid') %>% 
   left_join(hh_afe, by = 'hhid') %>% 
   mutate(
+    survey = "lka_hies19",           
     iso3 = "LKA",
     zone = NA,
     adm1 = as.character(floor(district/10)),
     adm2 = as.character(district),
-    res = case_when(
+    res = factor(case_when(
       sector == 1 ~ "Urban",
       sector == 2 ~ "Rural",
       sector == 3 ~ "Estate"
-    ),
-    ea = psu,
+    )),
+    ea = as.character(psu),
     year = 2019, 
     survey_wgt = finalweight) %>% 
   
     group_by(sector) %>% 
       mutate(
-        per_capita_expenditure = hhexppm/hhsize, # NOTE: `hhsize` seems to be different that AFE... need to know why..
+        per_capita_expenditure = hhexppm/total, # NOTE: `hhsize` seems to be different that AFE... need to know why..
         
         res_quintile =
                case_when(
                  per_capita_expenditure<quantile(per_capita_expenditure,probs = seq(0,1,0.2), na.rm = TRUE)[[2]]~
-                   paste(res,"1"),
+                   1,
                  per_capita_expenditure<quantile(per_capita_expenditure,probs = seq(0,1,0.2), na.rm = TRUE)[[3]]~
-                   paste(res,"2"),
+                   2,
                  per_capita_expenditure<quantile(per_capita_expenditure,probs = seq(0,1,0.2), na.rm = TRUE)[[4]]~
-                   paste(res,"3"),
+                   3,
                  per_capita_expenditure<quantile(per_capita_expenditure,probs = seq(0,1,0.2), na.rm = TRUE)[[5]]~
-                   paste(res,"4"),
+                   4,
                  per_capita_expenditure<=quantile(per_capita_expenditure,probs = seq(0,1,0.2), na.rm = TRUE)[[6]]~
-                   paste(res,"5"),
+                   5,
                )) %>% 
       ungroup() %>% 
       mutate(sep_quintile =
                case_when(
                  per_capita_expenditure<quantile(per_capita_expenditure,probs = seq(0,1,0.2), na.rm = TRUE)[[2]]~
-                   "1",
+                   1,
                  per_capita_expenditure<quantile(per_capita_expenditure,probs = seq(0,1,0.2), na.rm = TRUE)[[3]]~
-                   "2",
+                   2,
                  per_capita_expenditure<quantile(per_capita_expenditure,probs = seq(0,1,0.2), na.rm = TRUE)[[4]]~
-                   "3",
+                   3,
                  per_capita_expenditure<quantile(per_capita_expenditure,probs = seq(0,1,0.2), na.rm = TRUE)[[5]]~
-                   "4",
+                   4,
                  per_capita_expenditure<=quantile(per_capita_expenditure,probs = seq(0,1,0.2), na.rm = TRUE)[[6]]~
-                   "5",
+                   5,
                )) %>% 
   rename(pc_expenditure = per_capita_expenditure) %>% 
-  select(hhid, iso3, zone,adm1,adm2,ea,res,sep_quintile,res_quintile, year, month, survey_wgt, pc_expenditure, afe)
+  select(survey,hhid, iso3, zone,adm1,adm2,ea,res,sep_quintile,res_quintile, year, month, survey_wgt, afe, pc_expenditure)
 
 
 
@@ -381,7 +382,7 @@ hh_info <- HH_expenditure_hh_Income %>%
 ################################################################################
 path_to_save = "data/processed/"
 write_csv(afe_all, paste0(path_to_save,"hh_energy_requirements.csv"))
-write_csv(hh_info, paste0(path_to_save, "hh_info.csv"    ))
+write_csv(hh_info, paste0(path_to_save, "database_upload/hh_info.csv"    ))
 saveRDS(hh_info, paste0(path_to_save, "hh_info.RDS"    ))
 
-# rm(list = ls())
+rm(list = ls())

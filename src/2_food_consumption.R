@@ -75,7 +75,7 @@ get_har <- function(){
   return(h_ar)
 }
 har <- get_har() %>% 
-  filter(iso3 == "IND")
+  filter(iso3 == "ETH")
 
 
 
@@ -392,32 +392,69 @@ calc_nar <- function(h_ar, comparison){return(ifelse(comparison<h_ar,comparison/
 sl_ml_targets <- hh_ai %>% 
   select(hhid,vita_rae_mcg,folate_mcg,vitb12_mcg,
          fe_mg,zn_mg) %>% 
-  left_join(hh_info |> select(hhid, month)) |> 
+  left_join(hh_info |> select(hhid)) |> 
   mutate(
-    vita_nar = calc_nar(h_ar$vita_rae_mcg, vita_rae_mcg),
-    fol_nar = calc_nar(h_ar$folate_mcg,folate_mcg),
-    vitb12_nar = calc_nar(h_ar$vitb12_mcg, vitb12_mcg),
+    vita_nar = calc_nar(h_ar$vita_rae_mcg[1], vita_rae_mcg),
+    fol_nar = calc_nar(h_ar$folate_mcg[1],folate_mcg),
+    vitb12_nar = calc_nar(h_ar$vitb12_mcg[1], vitb12_mcg),
     fe_nar = calc_nar(15,fe_mg),
     zn_nar = calc_nar(8.9,zn_mg),#for sri lanka it is lower
     overall_mar = (vita_nar+fol_nar+vitb12_nar+fe_nar+zn_nar)/5,
     va_ref = 490,
     fol_ref = 250,
     vb12_ref = 2,
-    fe_ref = 22.4,
-    zn_ref = 10.2,
+    fe_ref = 15,
+    zn_ref = 8.9,
     survey = "lka_hies19",
     iso3 = "LKA",
   ) %>% 
-  # rename(va_ai = vita_rae_mcg,
-  #        fol_ai = folate_mcg,
-  #        vb12_ai = vitb12_mcg,
-  #        fe_ai = fe_mg, 
-  #        zn_ai = zn_mg) %>% 
-  select(iso3,survey,hhid,month,vita_rae_mcg,folate_mcg,vitb12_mcg,
+  select(iso3,survey,hhid,vita_rae_mcg,folate_mcg,vitb12_mcg,
          fe_mg,zn_mg,
          overall_mar) 
-  
 
+
+### data base read
+
+
+base_ai <- hh_ai %>% 
+  mutate(survey = 'lka_hies19',
+         iso3 = 'LKA',
+         vitd_mcg = NA) %>% 
+  select(survey, hhid,iso3, energy_kcal,vita_rae_mcg,thia_mg,ribo_mg,niac_mg,
+         vitb6_mg, vitd_mcg, folate_mcg,vitb12_mcg,vitc_mg,ca_mg,fe_mg,zn_mg)
+
+food_consumption_db <- food_consumption %>% 
+  mutate(iso3 = 'LKA',
+         survey  = 'lka_hies19') %>% 
+  select(iso3, survey, hhid,item_code, quantity_g,quantity_100g) %>% 
+  mutate(item_code = as.character(item_code))
+
+sl_fct_db <- sl_fct %>% 
+  mutate(
+    item_code = code,    
+    survey = 'lka_hies19',
+    iso3 = 'LKA',
+    zone = NA,
+    ) %>% 
+  select(item_code, iso3, survey, zone, item_name, energy_kcal,vita_rae_mcg,thia_mg,ribo_mg,niac_mg,
+         vitb6_mg, folate_mcg,vitb12_mcg,vitc_mg,ca_mg,fe_mg,zn_mg)
+
+
+
+# food groups
+food_group <- read_csv('data/food_group.csv')
+unique(food_group$food_group)
+food_group_db <- food_group %>% mutate(iso3 = 'LKA', survey = 'lka_hies19') %>% 
+  select(item_code, iso3, survey,food_group)
+
+h_ar_lka <- h_ar %>% 
+  filter(iso3 == "BEN") %>% 
+  mutate(iso3 = "LKA",
+         energy_kcal = 2170,
+         niac_mg = 11.9,
+         ca_mg = 750,
+         fe_mg = 15, 
+         zn_mg= 8.9)
 
 ################################################################################
 
@@ -438,6 +475,13 @@ write.csv(sens_matching, paste0(path_to_data,"sens_matching.csv"))
 
 write_csv(sl_ml_targets,paste0(path_to_data,"sl_ml_targets_", Sys.Date(),".csv"))
 
+# database csv read
+
+write.csv(base_ai, paste0(path_to_data, "database_upload/base_ai.csv"))
+write.csv(food_consumption_db, paste0(path_to_data, "database_upload/food_consumption.csv"))
+write.csv(sl_fct_db, paste0(path_to_data, "database_upload/fct.csv"))
+write.csv(food_group_db, paste0(path_to_data, "database_upload/food_group.csv"))
+write.csv(h_ar_lka, paste0(path_to_data, "database_upload/h_ar.csv" ))
 # 
 rm(list = ls())
 
