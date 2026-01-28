@@ -45,11 +45,19 @@ sl_fct <- readxl::read_xlsx(paste0(path_to_raw_data,"sri_lanka_food_matches.xlsx
 # gabriel conversion factors
 conversion_factor <- readxl::read_xlsx(paste0(path_to_raw_data, "conversion_factor_sl.xlsx"), 
                                        sheet = 2)
-#DCS convesion factors
-conversion_factor <- readxl::read_xlsx("data/raw/Item_kcal_coeff_2019_wfp.xlsx") %>%  
-  select(itemcode, grameq) %>% 
-  rename(code = itemcode,
-         conversion_to_grams  = grameq)
+
+########################################################################
+# SOME OF THESE VALUES ARE WRONG SAFER TO USE MY FACTORS
+
+#DCS convesion factors - 
+# conversion_factor <- readxl::read_xlsx("data/raw/Item_kcal_coeff_2019_wfp.xlsx") %>%  
+#   select(itemcode, grameq) %>% 
+#   rename(code = itemcode,
+#          conversion_to_grams  = grameq)
+
+
+########################################################################
+
 
 
 hh_info <- readRDS(paste0(path_to_data,"hh_info.RDS"))
@@ -173,7 +181,7 @@ converted_food <- SEC_4_1_FOOD_EXP %>%
   mutate(conversion_to_grams = ifelse(is.na(conversion_to_grams), 1, conversion_to_grams),
          quantity = quantity*conversion_to_grams)
 
-
+conversion_factor
 #check the numbers of people consuming each food 
 converted_food_hh <- converted_food %>% 
   filter(conversion_to_grams != 1) %>% 
@@ -271,17 +279,7 @@ food_afe <- edible_food %>%
 # rm(imputed_food, converted_food)
 anti_join(edible_food, hh_info, by = "hhid") %>% distinct(hhid)
 
-food_afe$group <- floor(as.numeric(food_afe$code) / 100)
-# 
-# for(group_num in c(seq(1:11),seq(13:19))){
-#   print(group_num)
-#   x <- food_afe %>% 
-#     filter(group == group_num & !is.na(quantity_ai) & group != 12) %>% 
-#     ggplot(aes(x = quantity_ai))+
-#     geom_histogram()+
-#     facet_wrap(~code)
-#   show(x)
-# }
+
 
 
 
@@ -331,16 +329,52 @@ food_afe <- food_afe %>%
   select(hhid, code, quantity_ai, quantity_100g)
 
 
+food_afe$group <- floor(as.numeric(food_afe$code) / 100)
+# 
+for (group_num in 1:11) {
+  dat <- food_afe %>% 
+    filter(group == group_num, !is.na(quantity_ai))
+  
+  if (nrow(dat) == 0) {
+    message("Group ", group_num, ": no data after filtering; skipping.")
+    next
+  }
+  
+  p <- ggplot(dat, aes(x = quantity_ai)) +
+    geom_histogram(color = "white", bins = 30) +
+    facet_wrap(~ code, scales = "free_x") +
+    labs(
+      title = paste("Distriibution  quantity_ai — group", group_num),
+      x = "quantity_ai", y = "Frequency"
+    ) +
+    theme_minimal(base_size = 12)
+  
+  print(p)
+}
 
-# for(group_num in c(seq(1:11),seq(13:19))){
-#   print(group_num)
-#   x <- food_afe %>% 
-#     filter(group == group_num & !is.na(quantity_ai) & group != 12) %>% 
-#     ggplot(aes(x = quantity_ai))+
-#     geom_histogram()+
-#     facet_wrap(~code)
-#   show(x)
-# }
+
+
+for (group_num in 12:19) {
+  dat <- food_afe %>% 
+    filter(group == group_num, !is.na(quantity_ai))
+  
+  if (nrow(dat) == 0) {
+    message("Group ", group_num, ": no data after filtering; skipping.")
+    next
+  }
+  
+  p <- ggplot(dat, aes(x = quantity_ai)) +
+    geom_histogram(color = "white", bins = 30) +
+    facet_wrap(~ code, scales = "free_x") +
+    labs(
+      title = paste("Distribution  quantity_ai — group", group_num),
+      x = "quantity_ai", y = "frequency"
+    ) +
+    theme_minimal(base_size = 12)
+  
+  print(p)
+}
+
 
 # ------------------------------------------------------------------------------
 # inital match to food i
@@ -447,13 +481,13 @@ unique(food_group$food_group)
 food_group_db <- food_group %>% mutate(iso3 = 'LKA', survey = 'lka_hies19') %>% 
   select(item_code, iso3, survey,food_group)
 
-h_ar_lka <- h_ar %>% 
-  filter(iso3 == "BEN") %>% 
+h_ar_lka <- h_ar %>%
+  filter(iso3 == "BEN") %>%
   mutate(iso3 = "LKA",
          energy_kcal = 2170,
          niac_mg = 11.9,
          ca_mg = 750,
-         fe_mg = 15, 
+         fe_mg = 15,
          zn_mg= 8.9)
 
 ################################################################################
