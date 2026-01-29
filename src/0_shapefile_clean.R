@@ -148,7 +148,30 @@ adm2_shapefile <- adm2_match %>%
 
 
 ################################################################################
-rm(lka_adm1,lka_adm2,adm1_match,adm2_match)
+# create table for database
+
+path_to_save <- 'data/processed/'
+
+adm1_codes <- 
+  adm1_match %>% 
+    mutate(survey_adm1 = as.character(floor(district/10)),
+           survey = 'lka_hies19',
+           wfp_adm0_code = 231,
+           wfp_adm1_code = as.integer(adm1)) %>% 
+  select(survey_adm1, survey,wfp_adm0_code, wfp_adm1_code) %>% 
+  group_by(survey_adm1) %>% 
+  slice(1)
+
+
+write_csv(adm1_codes, paste0(path_to_save, "database_upload/adm1_codes.csv"    ))
+
+adm0_codes <- data.frame(survey = 'lka_hies19',
+                         iso3 = "LKA",
+                     wfp_adm0_code = 231)
+write_csv(adm0_codes, paste0(path_to_save, "database_upload/adm0_codes.csv"    ))
+
+################################################################################
+rm(lka_adm1,lka_adm2,adm1_match,adm2_match,adm0_codes,adm1_codes)
 
 st_write(adm2_shapefile, 'data/processed/shapefile/adm2_shapefile.shp')
 

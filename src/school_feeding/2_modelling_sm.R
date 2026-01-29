@@ -25,11 +25,11 @@ nutrient_sac <- readRDS('data/school_feeding/nutrient_sac.RDS')
 
 
   # The school meal in Sri Lanka consists of:
-  # - 75g rice in different forms (milk rice, yellow rice etc)
-  # - 20g legumes
-  # - 30g any vegetable
-  # - 30g any leafy green vegetable
-  # - 30g meat
+  # - 75g rice in different forms (milk rice, yellow rice etc)  = item code 101
+  # - 20g legumes = item code 301
+  # - 30g any vegetable = item code 402
+  # - 30g any leafy green vegetable = item code 445
+  # - 30g meat = item code = 601
   # - 
 
 
@@ -42,9 +42,24 @@ config <- list(
 )
 
 
-sm_nutrient_profile <- create_school_meal(config$school_meal,sl_fct, fortified = FALSE)
+meal_profiles <- list(
+  sm      = FALSE,
+  sm_fort = TRUE
+) |> 
+  imap(~ create_school_meal(
+    config$school_meal,
+    sl_fct,
+    fortified = .x,
+    fortification_df = if (.x) config$fortification_df else NULL
+  ))
 
-sm_nutrient_profile_fort <- create_school_meal(config$school_meal,sl_fct, fortified = TRUE, fortification_df = config$fortification_df)
+# access:
+sm_nutrient_profile      <- meal_profiles$sm
+sm_nutrient_profile_fort <- meal_profiles$sm_fort
+
+
+sm_nutrient_profile      <- make_meal(FALSE)
+sm_nutrient_profile_fort <- make_meal(TRUE)
 
 
 # functions to add the school meal 
@@ -234,7 +249,10 @@ sm_nofort |>
       str_starts(nutrient, "folate_") ~ "Folate",
       str_starts(nutrient, "vitb12_mcg") ~ "Vitamin B12"
     ),
-    nutrient_group = factor(nutrient_group, levels = c("Iron", "Folate", "Vitamin B12")), # ✅ enforce order
+    
+    nutrient_group = factor(nutrient_group, 
+                            levels = c("Iron", "Folate", "Vitamin B12"))
+    , # ✅ enforce order
 
     # Color group classification
     color_group = case_when(
@@ -245,7 +263,7 @@ sm_nofort |>
   ) |>
   ggplot(aes(x = value, y = age_group, fill = color_group)) +
   geom_density_ridges(alpha = 0.5, position = "identity", scale = 0.7) +
-  facet_wrap(~ nutrient_group, scales = "free_x") +
+  facet_wrap(~ factor(nutrient_group), scales = "free_x") +
   geom_segment(
     data = ear_df,
     aes(

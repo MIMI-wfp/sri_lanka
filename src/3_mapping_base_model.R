@@ -13,18 +13,18 @@ base_ai <- read_rds("data/processed/base_ai.RDS")
 # connect to database
 
 # 
-# con <- DBI::dbConnect(RMySQL::MySQL(),
-#                  dbname = Sys.getenv("DB_NAME"),
-#                  host = "127.0.0.1",
-#                  port = 3306,
-#                  user = Sys.getenv("DB_USER"),
-#                  password =  Sys.getenv("DB_PASSWORD"))
-# 
-# 
-# # collect information from database
-# 
-# h_ar <- DBI::dbReadTable(con, "h_ar")
-# # 
+con <- DBI::dbConnect(RMySQL::MySQL(),
+                 dbname = Sys.getenv("DB_NAME"),
+                 host = "127.0.0.1",
+                 port = 3306,
+                 user = Sys.getenv("DB_USER"),
+                 password =  Sys.getenv("DB_PASSWORD"))
+
+
+# collect information from database
+
+h_ar <- DBI::dbReadTable(con, "h_ar")
+#
 
 
 
@@ -104,13 +104,13 @@ fe_full_prob(df, adm1, survey_wgt)
 
 
 survey_object <- hh_info %>% 
-  left_join(base_ai,by = 'hhid') %>% 
+  left_join(base_ai  %>% mutate(hhid = as.character(hhid)),by = 'hhid') %>% 
   mutate(
     vita_inad = calc_inad(h_ar$vita_rae_mcg[1], vita_rae_mcg),
     zn_inad = calc_inad(h_ar$zn_mg[1], zn_mg),
     folate_inad = calc_inad(h_ar$folate_mcg[1], folate_mcg),
-    thia_inad = calc_inad(h_ar$thia_mg[1], thia_mg),
-    vitb12_inad = calc_inad(h_ar$vitb12_mcg, vitb12_mcg)
+    # thia_inad = calc_inad(h_ar$thia_mg[1], thia_mg),
+    vitb12_inad = calc_inad(h_ar$vitb12_mcg[1], vitb12_mcg)
     ) %>% 
   as_survey_design(ids = ea, weights = survey_wgt, strata = res) 
 
@@ -131,7 +131,9 @@ adm2_average <- survey_object %>%
   left_join(fe_full_prob(df, adm2, survey_wgt) %>% 
               rename(fe_inad = fe_mg_prop),by = c("adm2" = "subpopulation"))
 
-write_csv(adm2_average, "data/processed/adm2_average.csv")
+
+
+# write_csv(adm2_average, "data/processed/adm2_average.csv")
 # connect to the shapefile
 
 adm2_sp <- adm2_average %>% 
@@ -245,11 +247,11 @@ create_and_save_plots <- function(save_plots = TRUE, output_dir = "outputs/plots
 # Usage examples:
 
 # 1. Create and save all plots (default behavior)
-all_plots <- create_and_save_plots()
+all_plots <- create_and_save_plots(save_plots =  FALSE)
 
 
 # 4. Access individual plots from the returned list
-all_plots$adm1_zn  # ADM1 zinc plot
+all_plots$adm1  # ADM1 zinc plot
 all_plots$adm2_zn  # ADM2 iron plot
 
 
