@@ -1,5 +1,11 @@
 # INSTALL AND LOAD PACKAGES:
 
+
+################################################################################
+# NOTE: PLEASE UNCOMMENT ANY LINES YOU WANT TO RUN. THESE ARE COMMENTED OUT SO 
+# THERE IS NOT ACCIDENTAL DELETION OR UPLOADING TO THE DATABASE 
+################################################################################
+
 rq_packages <- c("readr", "DBI", "RMySQL", "tidyverse", "getPass")
 
 installed_packages <- rq_packages %in% rownames(installed.packages())
@@ -22,27 +28,34 @@ con <- dbConnect(RMySQL::MySQL(),
                  password = getPass("Enter password: "))
 
 
+# HML DATA --------------------------------------------------------------------
+
+# dbExecute(con, "DELETE FROM hungermap_mimi WHERE iso3 = 'LKA'")
+# read_lka_hm <- "SELECT * FROM hungermap_mimi WHERE iso3 = 'LKA'"
+# DBI::dbGetQuery(con, read_lka_hm)
+# 
+# rm(read_lka_hm)
 #-------------------------------------------------------------------------------
 
 # READ DATA
-ml_targets <- read_csv("data/processed/sl_ml_targets_2026-01-28.csv")
-
-
-
-
-# remove ML Targets
-dbExecute(con, "DELETE FROM ML_targets WHERE iso3 = 'LKA'")
-# ML Targets
-
-dbWriteTable(con, name = "ML_targets", value = ml_targets,
-             append = TRUE, row.names = FALSE)
+# ml_targets <- read_csv("data/processed/sl_ml_targets_2026-01-28.csv")
 # 
 # 
-## test it's worked
-read_lka_targets <- "SELECT * FROM ML_targets WHERE iso3 = 'LKA'"
-DBI::dbGetQuery(con, read_lka_targets)
 # 
-rm(ml_targets)
+# 
+# # remove ML Targets
+# dbExecute(con, "DELETE FROM ML_targets WHERE iso3 = 'LKA'")
+# # ML Targets
+# 
+# dbWriteTable(con, name = "ML_targets", value = ml_targets,
+#              append = TRUE, row.names = FALSE)
+# # 
+# # 
+# ## test it's worked
+# read_lka_targets <- "SELECT * FROM ML_targets WHERE iso3 = 'LKA'"
+# DBI::dbGetQuery(con, read_lka_targets)
+# # 
+# rm(ml_targets)
 
 #-------------------------------------------------------------------------------
 
@@ -71,18 +84,18 @@ rm(ml_targets)
 # DBI::dbGetQuery(con, read_lka)
 # rm(adm0_codes)
 #-------------------------------------------------------------------------------
-base_ai <- read_csv("data/processed/database_upload/base_ai.csv")
-base_ai <- base_ai %>% select(-`...1`)
-base_ai
-
-dbExecute(con, "DELETE FROM base_ai WHERE iso3 = 'LKA'")
-
-dbWriteTable(con, name = "base_ai", value = base_ai, 
-             append = TRUE, row.names = FALSE)
-
-read_lka <- "SELECT * FROM base_ai WHERE iso3 = 'LKA'"
-DBI::dbGetQuery(con, read_lka)
-rm(base_ai)
+# base_ai <- read_csv("data/processed/database_upload/base_ai.csv")
+# base_ai <- base_ai %>% select(-`...1`)
+# base_ai
+# 
+# dbExecute(con, "DELETE FROM base_ai WHERE iso3 = 'LKA'")
+# 
+# dbWriteTable(con, name = "base_ai", value = base_ai, 
+#              append = TRUE, row.names = FALSE)
+# 
+# read_lka <- "SELECT * FROM base_ai WHERE iso3 = 'LKA'"
+# DBI::dbGetQuery(con, read_lka)
+# rm(base_ai)
 
 #-------------------------------------------------------------------------------
 
@@ -114,19 +127,19 @@ rm(base_ai)
 
 #-------------------------------------------------------------------------------
 
-
-food_consumption <- read_csv("data/processed/database_upload/food_consumption.csv")
-food_consumption <- food_consumption %>% select(-`...1`)
-
-dbExecute(con, "DELETE FROM food_consumption WHERE iso3 = 'LKA'")
-
-
-dbWriteTable(con, name = "food_consumption", value = food_consumption, 
-             append = TRUE, row.names = FALSE)
-
-read_lka <- "SELECT * FROM food_consumption WHERE iso3 = 'LKA'"
-DBI::dbGetQuery(con, read_lka)
-rm(food_consumption)
+# 
+# food_consumption <- read_csv("data/processed/database_upload/food_consumption.csv")
+# food_consumption <- food_consumption %>% select(-`...1`)
+# 
+# dbExecute(con, "DELETE FROM food_consumption WHERE iso3 = 'LKA'")
+# 
+# 
+# dbWriteTable(con, name = "food_consumption", value = food_consumption, 
+#              append = TRUE, row.names = FALSE)
+# 
+# read_lka <- "SELECT * FROM food_consumption WHERE iso3 = 'LKA'"
+# DBI::dbGetQuery(con, read_lka)
+# rm(food_consumption)
 
 #-------------------------------------------------------------------------------
 # food_group <- read_csv("data/processed/database_upload/food_group.csv")
