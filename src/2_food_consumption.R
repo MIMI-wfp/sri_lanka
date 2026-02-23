@@ -1,6 +1,6 @@
 ### Reading in SL HIES 2019
 
-
+rm(list = ls())
 rq_packages <- c("tidyverse", "srvyr")
 
 installed_packages <- rq_packages %in% rownames(installed.packages())
@@ -40,7 +40,7 @@ for(file in modules){
 }
 
 # read in fct
-sl_fct <- readxl::read_xlsx(paste0(path_to_raw_data,"sri_lanka_food_matches.xlsx"), 
+sl_fct <- readxl::read_xlsx(paste0(path_to_raw_data,"sri_lanka_food_matches_pre_collab.xlsx"), 
                             sheet = 1)
 # gabriel conversion factors
 conversion_factor <- readxl::read_xlsx(paste0(path_to_raw_data, "conversion_factor_sl.xlsx"), 
@@ -493,31 +493,31 @@ h_ar_lka <- h_ar %>%
 ################################################################################
 
 # food quantities
-
-write.csv(food_consumption, paste0(path_to_data, "food_consumption.csv"))
-write_rds(food_consumption, paste0(path_to_data, "food_consumption.RDS"))
-
-# base ai
-
-write.csv(hh_ai, paste0(path_to_data, "base_ai.csv"))
-write_rds(hh_ai, paste0(path_to_data, "base_ai.RDS"))
-
-write.csv(sens_matching, paste0(path_to_data,"sens_matching.csv"))
 # 
+# write.csv(food_consumption, paste0(path_to_data, "food_consumption.csv"))
+# write_rds(food_consumption, paste0(path_to_data, "food_consumption.RDS"))
+# 
+# # base ai
+# 
+# write.csv(hh_ai, paste0(path_to_data, "base_ai.csv"))
+# write_rds(hh_ai, paste0(path_to_data, "base_ai.RDS"))
+# 
+# write.csv(sens_matching, paste0(path_to_data,"sens_matching.csv"))
+# # 
+# # rm(list = ls())
+# 
+# 
+# write_csv(sl_ml_targets,paste0(path_to_data,"sl_ml_targets_", Sys.Date(),".csv"))
+# 
+# # database csv read
+# 
+# write.csv(base_ai, paste0(path_to_data, "database_upload/base_ai.csv"))
+# write.csv(food_consumption_db, paste0(path_to_data, "database_upload/food_consumption.csv"))
+# write.csv(sl_fct_db, paste0(path_to_data, "database_upload/fct.csv"))
+# write.csv(food_group_db, paste0(path_to_data, "database_upload/food_group.csv"))
+# write.csv(h_ar_lka, paste0(path_to_data, "database_upload/h_ar.csv" ))
+# # 
 # rm(list = ls())
-
-
-write_csv(sl_ml_targets,paste0(path_to_data,"sl_ml_targets_", Sys.Date(),".csv"))
-
-# database csv read
-
-write.csv(base_ai, paste0(path_to_data, "database_upload/base_ai.csv"))
-write.csv(food_consumption_db, paste0(path_to_data, "database_upload/food_consumption.csv"))
-write.csv(sl_fct_db, paste0(path_to_data, "database_upload/fct.csv"))
-write.csv(food_group_db, paste0(path_to_data, "database_upload/food_group.csv"))
-write.csv(h_ar_lka, paste0(path_to_data, "database_upload/h_ar.csv" ))
-# 
-rm(list = ls())
 
 
 

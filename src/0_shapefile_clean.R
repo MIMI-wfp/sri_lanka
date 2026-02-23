@@ -174,5 +174,6 @@ write_csv(adm0_codes, paste0(path_to_save, "database_upload/adm0_codes.csv"    )
 rm(lka_adm1,lka_adm2,adm1_match,adm2_match,adm0_codes,adm1_codes)
 
 st_write(adm2_shapefile, 'data/processed/shapefile/adm2_shapefile.shp')
+st_write(adm1_shapefile, 'data/processed/shapefile/adm1_shapefile.shp')
 
 

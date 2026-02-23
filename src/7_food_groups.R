@@ -24,7 +24,7 @@ readRenviron(".Renviron")
 rm(list= c("rq_packages", "installed_packages"))
 
 # A script to explore the sources of energy intake by food group in the 
-# population of Rwanda, using the Rwanda EICV7.
+# population of sri lanka.
 
 #-------------------------------------------------------------------------------
 
