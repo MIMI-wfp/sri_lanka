@@ -16,10 +16,24 @@ rm(list= c("rq_packages", "installed_packages"))
 source("src/school_feeding/1_school_menu_builder.R")
 
 # load data
+adm2_shapefile <- sf::st_read("data/processed/shapefile/adm2_shapefile.shp")
+# 
 path_to_raw_data <- "C:/Users/gabriel.battcock/OneDrive - World Food Programme/General - MIMI Project/Countries/Sri Lanka/data/"
 sl_fct <- readxl::read_xlsx(paste0(path_to_raw_data,"sri_lanka_food_matches.xlsx"), 
                             sheet = 1)
+hh_info <- read_rds("data/processed/hh_info.RDS")
 nutrient_sac <- readRDS('data/school_feeding/nutrient_sac.RDS')
+
+
+# filter the school meals only in the districts
+school_meals_district <- c(91)
+
+nutrient_sac <- nutrient_sac %>% 
+  left_join(hh_info)
+# %>% 
+#   filter(adm2 %in% school_meals_district)
+
+
 
 # create our school meal  assumptions
 
@@ -34,11 +48,11 @@ nutrient_sac <- readRDS('data/school_feeding/nutrient_sac.RDS')
 
 
 config <- list(
-  school_meal = data.frame(code = c(101,301,402,445,601,1607),
-                            quantity_g = c(75,20,30,30,30,60)) %>%
+  school_meal = data.frame(code = c(101,301,402,445,601,901,801,1602),
+                            quantity_g = c(37.5,20,30,30,10,10,10,60)) %>%
                mutate(quantity_100g = quantity_g/100),
   fortification_df = data.frame(scenario = 'SL', code = 101,
-                                 fe_mg = 6.5, folate_mcg = 65)
+                                 fe_mg = 6.5, folate_mcg = 65)#to account for DFE)
 )
 
 
@@ -57,9 +71,9 @@ meal_profiles <- list(
 sm_nutrient_profile      <- meal_profiles$sm
 sm_nutrient_profile_fort <- meal_profiles$sm_fort
 
-
-sm_nutrient_profile      <- make_meal(FALSE)
-sm_nutrient_profile_fort <- make_meal(TRUE)
+# 
+# sm_nutrient_profile      <- make_meal(FALSE)
+# sm_nutrient_profile_fort <- make_meal(TRUE)
 
 
 # functions to add the school meal 
@@ -80,7 +94,7 @@ nutrient_sac
 
 sm_nofort |> inner_join(sm_fort) |> 
   select(hhid,uniqueid, age_y, 
-  energy_kcal, 
+ 
   starts_with("fe"), starts_with("folate"),starts_with("vitb12_mcg"))
 
 
@@ -120,7 +134,11 @@ avg_df <- sm_nofort %>%
   ) %>%
   pivot_wider(names_from = type, values_from = value)
 
-# ---- 2. Prepare EAR data ----
+
+
+
+
+# ---- 2. Prepare EAR data nutrient# ---- 2. Prepare EAR data ----
 
 ear_df <- tibble(
   nutrient = rep(c("fe_mg", "folate_mcg", "vitb12_mcg"), times = 3),
@@ -128,6 +146,9 @@ ear_df <- tibble(
   age_group = rep(c("4-6", "7-10", "11-13"), each = 3)
 )
 
+ear_df_wide <- ear_df %>% 
+  mutate(nutrient = paste0(nutrient,"_EAR")) %>% 
+  pivot_wider(names_from = nutrient, values_from = EAR)
 
 
 
@@ -136,6 +157,84 @@ avg_df <- avg_df %>%
 
 ear_df <- ear_df %>%
   mutate(age_group = factor(age_group, levels = c("4-6", "7-10", "11-13")))
+
+
+
+################################################################################
+# inad by age group
+
+sm_inad <- sm_nofort %>%
+  inner_join(sm_fort) %>%
+  mutate(
+    age_group = case_when(
+      age_y >= 4 & age_y <= 6 ~ "4-6",
+      age_y >= 7 & age_y <= 10 ~ "7-10",
+      age_y >= 11 & age_y <= 13 ~ "11-13",
+      TRUE ~ "Other"
+    )
+  ) %>% 
+  left_join(ear_df_wide, by = 'age_group') %>% 
+  mutate(fe_inad = ifelse(fe_mg<fe_mg_EAR,1,0),
+         fe_inad_sm = ifelse(fe_mg_sm<fe_mg_EAR,1,0),
+         fe_inad_sm_fort = ifelse(fe_mg_sm_fort<fe_mg_EAR,1,0),
+         fol_inad = ifelse(fe_mg<fe_mg_EAR,1,0),
+         fol_inad_sm = ifelse(fe_mg_sm<fe_mg_EAR,1,0),
+         fol_inad_sm_fort = ifelse(fe_mg_sm_fort<fe_mg_EAR,1,0))
+
+
+sm_inad %>% 
+  group_by(age_group) %>% 
+  summarise(across(c(fe_inad,fe_inad_sm,fe_inad_sm_fort),
+            ~sum(.x)/n())) 
+  
+sm_inad_svy <- sm_inad %>% 
+  as_survey_design(ids = ea,
+                   strata = res, 
+                   weights = survey_wgt)
+
+sm_inad_adm2 <- sm_inad_svy %>% 
+  srvyr::group_by(adm2) %>% 
+  summarise(
+    across(c(fe_inad,fe_inad_sm,fe_inad_sm_fort,fol_inad,fol_inad_sm,fol_inad_sm_fort),
+   ~survey_mean(.x, proportion = TRUE, na.rm = TRUE)*100
+    ))%>% 
+  left_join(adm2_shapefile) %>% 
+  sf::st_as_sf()
+
+
+indicators <- c(
+  "fe_inad", "fe_inad_sm", "fe_inad_sm_fort",
+  "fol_inad", "fol_inad_sm", "fol_inad_sm_fort"
+)
+
+# Your age groups
+age_groups <- c("7-10", "11-13", "4-6")
+
+# for (ag in age_groups) {
+  
+  x <- sm_inad_adm2 
+  
+  
+  for (ind in indicators) {
+    
+    # print(paste("Processing:", ag, "|", ind))
+    
+    # Build a clean title
+    title_text <- paste("Inadequate", ind, "intake — all")
+    
+    p <- plot_sf_choropleth(
+      merged_sf = x,
+      outline_sf = x,
+      fill_var  = ind,
+      title     = title_text,
+      fill_name      = "Risk of inadequate micronutrient intake ",
+    )
+    print(p)
+    ggsave(filename = paste0("outputs/maps/school_meals/",ind,'_all.png'),
+           plot = p,
+           dpi = 600)
+  }
+# }
 
 # ---- 3. Plot ----
 
@@ -190,11 +289,13 @@ ear_df <- data.frame(
   nutrient  = c("fe_mg", "folate_mcg", "vitb12_mcg",
                 "fe_mg", "folate_mcg", "vitb12_mcg",
                 "fe_mg", "folate_mcg", "vitb12_mcg"),
-  EAR       = c(8, 110, 1, 10, 160, 1, 15.5, 210, 1.5)
+  EAR       = c(8, 110, 1, 10, 160, 1, 15.5, 210, 1.5),
+  UL = c(40,NA,NA,40,NA,NA,40,NA,NA)
+
 )
 
 ear_df <- ear_df %>%
-  mutate(age_group = factor(age_group, levels = c("4-6", "7-10", "11-13")))
+  mutate(age_group = factor(age_group, levels = c("6", "7-10", "11-13")))
 # Add nutrient_group and age_group to EAR data
 ear_df <- ear_df |>
   mutate(nutrient_group = case_when(
@@ -203,14 +304,15 @@ ear_df <- ear_df |>
     str_starts(nutrient, "vitb12") ~ "Vitamin B12"
   ),
   age_group = factor(case_when(
-    age_start == 5.5 & age_end == 6.5 ~ "4-6",
+    age_start == 5.5 & age_end == 6.5 ~ "6",
     age_start == 6.5 & age_end == 10.5 ~ "7-10",
     age_start == 10.5 & age_end == 13.5 ~ "11-13"
   ))
 )
 
+
 ear_df <- ear_df %>%
-  mutate(age_group = factor(age_group, levels = c("4-6", "7-10", "11-13")))
+  mutate(age_group = factor(age_group, levels = c("6", "7-10", "11-13")))
 
 # Main plot
 
@@ -236,12 +338,12 @@ sm_nofort |>
   mutate(
     # Age group classification
     age_group = case_when(
-      age_y %in% 6 ~ "4-6",
+      age_y %in% 6 ~ "6",
       age_y %in% 7:10 ~ "7-10",
       age_y %in% 11:13 ~ "11-13",
       TRUE ~ "Other"
     ),
-    age_group = factor(age_group, levels = c("4-6", "7-10", "11-13")),
+    age_group = factor(age_group, levels = c("6", "7-10", "11-13")),
 
     # Nutrient group classification
     nutrient_group = case_when(
@@ -261,6 +363,11 @@ sm_nofort |>
       TRUE ~ "Household meal only"
     )
   ) |>
+  filter(color_group %in% c("Household meal only",
+                            "Household meal + school meal",
+                            "Household meal + Fortfied school meal"
+                            
+                            )) %>% 
   ggplot(aes(x = value, y = age_group, fill = color_group)) +
   geom_density_ridges(alpha = 0.5, position = "identity", scale = 0.7) +
   facet_wrap(~ factor(nutrient_group), scales = "free_x") +
@@ -274,6 +381,16 @@ sm_nofort |>
     inherit.aes = FALSE,
     color = "red", size = 0.8
   ) +
+  geom_segment(
+    data = ear_df,
+    aes(
+      x = UL, xend = UL,
+      y = as.numeric(factor(age_group)),
+      yend = as.numeric(factor(age_group)) + 0.7
+    ),
+    inherit.aes = FALSE,
+    color = "blue", size = 0.8
+  ) +
   scale_fill_manual(values = c(
     "Household meal only" = "#008EB2",
     "Household meal + school meal" = "#039249",
@@ -284,7 +401,8 @@ sm_nofort |>
     x = "Total daily apparent intake (mg or µg)",
     y = "Age Group",
     fill = "Type"
-  )
+  )+ 
+  theme(legend.position = "none")
 
 
 

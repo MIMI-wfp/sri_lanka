@@ -5,7 +5,8 @@ source_url("https://raw.githubusercontent.com/MIMI-wfp/MIMI-R-functions/refs/hea
 
 hh_info <- read_rds("data/processed/hh_info.RDS")
 base_ai <- read_rds("data/processed/base_ai.RDS")
-
+adm1_shapefile <- st_read("data/processed/shapefile/adm1_shapefile.shp")
+adm2_shapefile <- st_read("data/processed/shapefile/adm2_shapefile.shp")
 # 
 # Sys.getenv()
 
@@ -29,21 +30,14 @@ h_ar <- DBI::dbReadTable(con, "h_ar")
 
 
 
-
-# collect information from database
-
-h_ar <- DBI::dbReadTable(con, "h_ar")
-#
-
-
-
 # # disconnect
 DBI::dbDisconnect(con)
-
+h_ar <- h_ar %>% filter(iso3 == 'LKA')
 ################################################################################
 
 calc_inad <- function(h_ar, comparison){return(ifelse(comparison<h_ar,1,0))}
 
+#' @export
 plot_sf_choropleth <- function(
     merged_sf,
     outline_sf,
@@ -99,12 +93,12 @@ plot_sf_choropleth <- function(
 ## FIX FOR IRON, FULL PROB ##
 df <- hh_info %>% 
   left_join(base_ai,by = 'hhid') 
-fe_full_prob(df, adm1, survey_wgt)
+fe_full_prob(df, group1 = adm1, hh_weight = 'survey_wgt')
 
 
 
 survey_object <- hh_info %>% 
-  left_join(base_ai  %>% mutate(hhid = as.character(hhid)),by = 'hhid') %>% 
+  left_join(df  %>% mutate(hhid = as.character(hhid))) %>% 
   mutate(
     vita_inad = calc_inad(h_ar$vita_rae_mcg[1], vita_rae_mcg),
     zn_inad = calc_inad(h_ar$zn_mg[1], zn_mg),
@@ -165,7 +159,7 @@ adm1_sp <- adm1_average %>%
   st_as_sf()
 
 
-
+#' @export
 create_and_save_plots <- function(save_plots = TRUE, output_dir = "outputs/plots", 
                                   width = 10, height = 8, dpi = 300) {
   
@@ -251,7 +245,7 @@ all_plots <- create_and_save_plots(save_plots =  FALSE)
 
 
 # 4. Access individual plots from the returned list
-all_plots$adm1  # ADM1 zinc plot
+all_plots$adm1_zn  # ADM1 zinc plot
 all_plots$adm2_zn  # ADM2 iron plot
 
 

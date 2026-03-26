@@ -1,30 +1,30 @@
 source("src/3_mapping_base_model.R")
 
 # Load data
-base_ai <- read_rds("data/processed/base_ai.RDS")
+base_ai <- read_rds("data/processed/sl_ml_targets_2025-07-16.csv.RDS")
 food_consumption <- read_rds("data/processed/food_consumption.RDS")
 
-# get_har <- function(){
-#   
-#   con <- DBI::dbConnect(RMySQL::MySQL(),
-#                         dbname = Sys.getenv("DB_NAME"),
-#                         host = "127.0.0.1",
-#                         port = 3306,
-#                         user = Sys.getenv("DB_USER"),
-#                         password =  Sys.getenv("DB_PASSWORD"))
-#   
-#   
-#   # collect information from database
-#   
-#   h_ar <<- DBI::dbReadTable(con, "h_ar")
-#   
-#   # DBI::dbReadTable(con, "ML_targets")
-#   # # disconnect
-#   DBI::dbDisconnect(con)
-#   return(h_ar)
-# }
-# get_har() %>% 
-#   slice(1)
+get_har <- function(){
+
+  con <- DBI::dbConnect(RMySQL::MySQL(),
+                        dbname = Sys.getenv("DB_NAME"),
+                        host = "127.0.0.1",
+                        port = 3306,
+                        user = Sys.getenv("DB_USER"),
+                        password =  Sys.getenv("DB_PASSWORD"))
+
+
+  # collect information from database
+
+  h_ar <<- DBI::dbReadTable(con, "h_ar")
+
+  # DBI::dbReadTable(con, "ML_targets")
+  # # disconnect
+  DBI::dbDisconnect(con)
+  return(h_ar)
+}
+h_ar <- get_har() %>%
+   filter(iso3 == "LKA")
 
 # Function to plot and save histogram of a given micronutrient
 plot_distribution <- function(df = base_ai, micronutrient) {

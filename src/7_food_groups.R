@@ -24,7 +24,7 @@ readRenviron(".Renviron")
 rm(list= c("rq_packages", "installed_packages"))
 
 # A script to explore the sources of energy intake by food group in the 
-# population of Rwanda, using the Rwanda EICV7.
+# population of sri lanka.
 
 #-------------------------------------------------------------------------------
 
@@ -235,7 +235,8 @@ names(nutritious_colors) <- levels(nutritious_breakdown$food_group)
 
 energy_intake_grouped <- energy_intake_grouped %>%
   arrange((energy_pct)) %>% 
-  mutate(food_group_new = factor(food_group_new, levels = unique(food_group_new)))
+  mutate(food_group_new = factor(food_group_new, levels = unique(food_group_new))) %>% 
+  filter(!is.na(food_group_new))
 
 
 energy_intake_grouped

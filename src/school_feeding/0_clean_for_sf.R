@@ -140,7 +140,8 @@ roster <- SEC_1_DEMOGRAPHIC |>
 
 
 # Read in data #############################################################
-base_ai <- readRDS("data/processed/base_ai.RDS")
+# base_ai <- read_csv("data/processed/sl_ml_targets_2025-11-13.csv")
+base_ai <- read_csv("data/processed/base_ai.csv")
 hh_info <- readRDS("data/processed/hh_info.RDS")
 
 # 1.2 Energy adjustment ----------------------------------------------------
@@ -149,7 +150,7 @@ roster_adjust <- roster |>
   rename(age_y = age,age_m = months)
 
 
-roster_adjusted <- Enerc_adjustment(roster_adjust, excl.bf = F, excl.age = 6, comple.bf = F, prev.complebf =  0.6, school = T, feeding = T)
+roster_adjusted <- Enerc_adjustment(roster_adjust, excl.bf = F, excl.age = 6, comple.bf = F, prev.complebf =  0.6, school = T, feeding = T, school_days = 180)
 
 
 # 1.3 household food allocation -------------------------------------------
@@ -161,6 +162,7 @@ roster_afe <- roster_adjusted %>%
     afe = enerc_kcal/Energy_afe,
     afe_school = enerc_kcal_school/Energy_afe, 
     afe_feed = enerc_kcal_feeding/Energy_afe) 
+
 
 
 # Calculating HH AFE
@@ -182,14 +184,16 @@ sac_only <-  roster_afe %>%
   filter(age_y >=6 & age_y<=13) # filtering SAC
 
 # 1.4 -----------------------------------------------------------------------------
-nutrient_summary <- base_ai |> left_join(hh_info |> select(hhid,afe)) |> 
+nutrient_summary <- base_ai %>% mutate(hhid = as.character(hhid)) |> left_join(hh_info  |> select(hhid,afe)) |> 
   mutate(
     across(
-      -c(afe,hhid),
+      -c(afe,hhid,
+         survey,iso3,month),
       ~.*afe
 )) |> 
   select(-c(afe)) |> 
-  ungroup() 
+  ungroup() %>% 
+  select(-c(, iso3,month))
 
 
 nutrient_afe <-
@@ -216,3 +220,4 @@ saveRDS(nutrient_sac, 'data/school_feeding/nutrient_sac.RDS')
 saveRDS(nutrient_afe, 'data/school_feeding/nutrient_afe.RDS')
 
 rm(list = ls())
+
