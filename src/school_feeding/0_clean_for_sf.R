@@ -140,7 +140,8 @@ roster <- SEC_1_DEMOGRAPHIC |>
 
 
 # Read in data #############################################################
-base_ai <- read_csv("data/processed/sl_ml_targets_2025-11-13.csv")
+# base_ai <- read_csv("data/processed/sl_ml_targets_2025-11-13.csv")
+base_ai <- read_csv("data/processed/base_ai.csv")
 hh_info <- readRDS("data/processed/hh_info.RDS")
 
 # 1.2 Energy adjustment ----------------------------------------------------
@@ -161,6 +162,7 @@ roster_afe <- roster_adjusted %>%
     afe = enerc_kcal/Energy_afe,
     afe_school = enerc_kcal_school/Energy_afe, 
     afe_feed = enerc_kcal_feeding/Energy_afe) 
+
 
 
 # Calculating HH AFE
@@ -191,7 +193,7 @@ nutrient_summary <- base_ai %>% mutate(hhid = as.character(hhid)) |> left_join(h
 )) |> 
   select(-c(afe)) |> 
   ungroup() %>% 
-  select(-c(survey, iso3,month))
+  select(-c(, iso3,month))
 
 
 nutrient_afe <-
@@ -218,3 +220,4 @@ saveRDS(nutrient_sac, 'data/school_feeding/nutrient_sac.RDS')
 saveRDS(nutrient_afe, 'data/school_feeding/nutrient_afe.RDS')
 
 rm(list = ls())
+

@@ -49,7 +49,7 @@ nutrient_sac <- nutrient_sac %>%
 
 config <- list(
   school_meal = data.frame(code = c(101,301,402,445,601,901,801,1602),
-                            quantity_g = c(75,20,30,30,10,10,10,60)) %>%
+                            quantity_g = c(37.5,20,30,30,10,10,10,60)) %>%
                mutate(quantity_100g = quantity_g/100),
   fortification_df = data.frame(scenario = 'SL', code = 101,
                                  fe_mg = 6.5, folate_mcg = 65)#to account for DFE)
@@ -401,7 +401,8 @@ sm_nofort |>
     x = "Total daily apparent intake (mg or µg)",
     y = "Age Group",
     fill = "Type"
-  )+ theme(legend.position = "none")
+  )+ 
+  theme(legend.position = "none")
 
 
 
