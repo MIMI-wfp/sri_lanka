@@ -40,7 +40,7 @@ for(file in modules){
 }
 
 # read in fct
-sl_fct <- readxl::read_xlsx(paste0(path_to_raw_data,"sri_lanka_food_matches_pre_collab.xlsx"), 
+sl_fct <- readxl::read_xlsx(paste0(path_to_raw_data,"sri_lanka_food_matches.xlsx"), 
                             sheet = 1)
 # gabriel conversion factors
 conversion_factor <- readxl::read_xlsx(paste0(path_to_raw_data, "conversion_factor_sl.xlsx"), 
@@ -83,7 +83,7 @@ get_har <- function(){
   return(h_ar)
 }
 har <- get_har() %>% 
-  filter(iso3 == "ETH")
+  filter(iso3 == "LKA")
 
 
 
@@ -179,9 +179,11 @@ SEC_4_1_FOOD_EXP %>%
 converted_food <- SEC_4_1_FOOD_EXP %>%
   left_join(conversion_factor, by = "code") %>%
   mutate(conversion_to_grams = ifelse(is.na(conversion_to_grams), 1, conversion_to_grams),
-         quantity = quantity*conversion_to_grams)
+         quantity = quantity*conversion_to_grams,
+         quantity = ifelse(is.na(quantity), value*conversion_to_grams, quantity)
+                                      )
 
-conversion_factor
+
 #check the numbers of people consuming each food 
 converted_food_hh <- converted_food %>% 
   filter(conversion_to_grams != 1) %>% 
@@ -198,8 +200,10 @@ converted_food %>%
   filter(code == 1803)
 
 # Define your imputation function
-
-
+y <- converted_food %>% 
+  group_by(code) %>% 
+  summarise(n(),
+            mean(quantity )/7)
 
 
 
@@ -226,10 +230,12 @@ imputed_food <- converted_food
 imputed_food <- impute_quantity(imputed_food, 218,217)#purchased food 
 imputed_food <- impute_quantity(imputed_food, 220,217)#purchased food 
 imputed_food <- impute_quantity(imputed_food, 229,217)#purchased food
-# imputed_food <- impute_quantity(imputed_food, 435,)# jackfruit
+imputed_food <- impute_quantity(imputed_food, 435,c(501,502))# jackfruit
 imputed_food <- impute_quantity(imputed_food, 439,c(401:434))#other vegetable 
 imputed_food <- impute_quantity(imputed_food, 459,c(447,448,449,450))# other leafy greens
-# imputed_food <- impute_quantity(imputed_food, 503,)# jackfruit
+imputed_food <- impute_quantity(imputed_food, 503,c(501,502))# jackfruit
+imputed_food <- impute_quantity(imputed_food, 1124,c(1112,1113,1114,1115,1116,1117,1118,1119,1120,1121,1122,1123))
+imputed_food <- impute_quantity(imputed_food, 1209,c(1201,1202,1203,1204,1205,1206,1207))
 imputed_food <- impute_quantity(imputed_food, 1304,c(1301,1302))# curd
 imputed_food <- impute_quantity(imputed_food, 1305,c(1301,1302))# yogurt
 imputed_food <- impute_quantity(imputed_food, 1319,c(1309,1310,1311))# other milk products
@@ -245,11 +251,14 @@ imputed_food <- impute_quantity(imputed_food, 1804,1805)
 imputed_food <- impute_quantity(imputed_food, 1819,1812)
 
 
-imputed_food%>% 
+x <- imputed_food%>% 
 
-  filter(is.na(quantity))
+  filter(is.na(quantity)) %>% 
+  group_by(code) %>% 
+  summarise(n())
 
-  # filter(code == 1819)
+  
+# filter(code == 1819)
 
 
 
@@ -319,7 +328,7 @@ rm(quant_cutpoints)
 
 
 food_afe %>% 
-  filter(code == 105) %>% 
+  filter(code == 1001) %>% 
   ggplot()+
   geom_histogram(aes(x = quantity_ai))
 
@@ -499,10 +508,10 @@ h_ar_lka <- h_ar %>%
 # 
 # # base ai
 # 
-# write.csv(hh_ai, paste0(path_to_data, "base_ai.csv"))
-# write_rds(hh_ai, paste0(path_to_data, "base_ai.RDS"))
+write.csv(hh_ai, paste0(path_to_data, "base_ai.csv"))
+write_rds(hh_ai, paste0(path_to_data, "base_ai.RDS"))
 # 
-# write.csv(sens_matching, paste0(path_to_data,"sens_matching.csv"))
+write.csv(sens_matching, paste0(path_to_data,"sens_matching.csv"))
 # # 
 # # rm(list = ls())
 # 

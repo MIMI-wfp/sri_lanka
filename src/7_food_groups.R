@@ -235,7 +235,8 @@ names(nutritious_colors) <- levels(nutritious_breakdown$food_group)
 
 energy_intake_grouped <- energy_intake_grouped %>%
   arrange((energy_pct)) %>% 
-  mutate(food_group_new = factor(food_group_new, levels = unique(food_group_new)))
+  mutate(food_group_new = factor(food_group_new, levels = unique(food_group_new))) %>% 
+  filter(!is.na(food_group_new))
 
 
 energy_intake_grouped

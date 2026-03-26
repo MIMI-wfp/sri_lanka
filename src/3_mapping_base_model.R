@@ -30,14 +30,6 @@ h_ar <- DBI::dbReadTable(con, "h_ar")
 
 
 
-
-# collect information from database
-
-h_ar <- DBI::dbReadTable(con, "h_ar")
-#
-
-
-
 # # disconnect
 DBI::dbDisconnect(con)
 h_ar <- h_ar %>% filter(iso3 == 'LKA')

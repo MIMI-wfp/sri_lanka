@@ -1,10 +1,14 @@
 # look at different average food consumption across the country 
+source("R/packages.R")
 
-base_ai <- read_csv("data/processed/sl_ml_targets_2025-07-16.csv")
+
+base_ai <- read_csv("data/processed/base_ai.csv")
 food_consumption <- read_rds("data/processed/food_consumption.RDS")
 rice_consumption <- read_rds("data/processed/rice_consumption.rds")
 hh_info <- read_rds("data/processed/hh_info.rds")
 
+
+base_ai %>% ggplot(aes(x = energy_kcal))+geom_histogram()
 adm2_shapefile <- sf::st_read("data/processed/shapefile/adm2_shapefile.shp")
 
 # isolate total quantity of each asf
@@ -207,4 +211,36 @@ plot_consumption_map(
   title = "Pulses consumption",
   save_path = "outputs/maps/food_group/pulses_consumption.png"
 )
+
+# ------------------------------------------------------------------------------
+# vitamin A across the year
+
+
+base_ai %>% 
+  mutate(
+    hhid = as.character(hhid)) %>% 
+  left_join(hh_info) %>% 
+  mutate(
+    month = as.integer(month),
+    month_name = factor(month.name[month], levels = month.name) # ordered factor
+  ) %>%
+  
+  ggplot(aes(x = month, y = vita_rae_mcg)) +
+  geom_smooth(color = "#2C3E50", fill = "#A9CCE3", linewidth = 1.2) +
+  scale_x_continuous(
+    breaks = 1:12,
+    labels = month.name  # or month.abb for shorter labels
+  ) +
+
+  labs(
+    x = "Month",
+    y = "Vitamin A intake (mcg RAE)",
+    title = "Monthly Trends in Vitamin A Intake",
+    subtitle = "Median household intake across survey months"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(face = "bold")
+  )
 
