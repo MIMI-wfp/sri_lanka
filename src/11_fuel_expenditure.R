@@ -120,16 +120,16 @@ res_qunitile_exp <- hh_info %>%
   left_join(expenditure) %>% 
   as_survey_design(ids = ea, strata = res, weights = survey_wgt) %>% 
   mutate(res_quintile = paste(res,res_quintile)) %>% 
-  srvyr::group_by(res_quintile) %>% 
+  srvyr::group_by(res_quintile) %>%
 
   srvyr::summarise(
     srvyr::across(
       c(perc_fuel, perc_food),
-      ~srvyr::survey_quantile(.x,0.5 , na.rm = T)
+      ~srvyr::survey_mean(.x, na.rm = T)
     ),
       srvyr::across(
         c(hhfoodexppm,hhfuelexppm,hhexppm),
-        ~srvyr::survey_quantile(.x/hhsize, 0.5, na.rm =T)
+        ~srvyr::survey_mean(.x/hhsize, na.rm =T)
       )
     )
   
