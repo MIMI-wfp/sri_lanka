@@ -213,6 +213,6 @@ all_plots <- create_and_save_plots(save_plots = TRUE)
 # SAVE PREVALENCE TABLES  -----------------------------------------------------
 
 write_csv(adm1_average, "data/bright/processed/adm1_average.csv")
-write_csv(adm2_average, "data/bright/processed/adm2_average.csv")
+# write_csv(adm2_average, "data/bright/processed/adm2_average.csv")
 
 message("Script 3 complete.")

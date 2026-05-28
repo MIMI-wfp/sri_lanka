@@ -15,7 +15,7 @@ rm(list = c("rq_packages", "installed_packages"))
 
 ################################################################################
 # PATHS  -----------------------------------------------------------------------
-path_to_survey   <- "/Users/gabrielbattcock/Library/CloudStorage/OneDrive-WorldFoodProgramme/General - MIMI Project/Countries/Sri Lanka/data/bright_survey/"
+path_to_survey   <- "C:/Users/gabriel.battcock/OneDrive - World Food Programme/General - MIMI Project/Countries/Sri Lanka/data/bright_survey/"
 path_to_data_out <- "data/bright/processed/"
 
 ################################################################################

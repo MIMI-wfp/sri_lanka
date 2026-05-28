@@ -24,7 +24,8 @@ rm(list = c("rq_packages", "installed_packages"))
 ################################################################################
 # PATHS  -----------------------------------------------------------------------
 
-path_to_survey   <- "/Users/gabrielbattcock/Library/CloudStorage/OneDrive-WorldFoodProgramme/General - MIMI Project/Countries/Sri Lanka/data/bright_survey/"
+# path_to_survey   <- "/Users/gabrielbattcock/Library/CloudStorage/OneDrive-WorldFoodProgramme/General - MIMI Project/Countries/Sri Lanka/data/bright_survey/"
+path_to_survey   <- "C:/Users/gabriel.battcock/OneDrive - World Food Programme/General - MIMI Project/Countries/Sri Lanka/data/bright_survey/"
 path_to_data_out <- "data/bright/processed/"
 path_to_raw_data <- "data/"                               # root data folder (FCT location)
 
@@ -38,7 +39,7 @@ hh_info <- readRDS(paste0(path_to_data_out, "hh_info.RDS"))
 
 
 bright_fct <- readxl::read_xlsx(
-  paste0(path_to_raw_data, "bright/bright_fct.xlsx"),   # ⚠️ [C] confirm path/filename
+  paste0(path_to_raw_data, "bright/bright_fct.xlsx"),   
   sheet = 1
 ) |> 
   rename(item_code = j1_item) |> 
@@ -88,7 +89,21 @@ bright_food <- haven::read_dta(paste0(path_to_survey, "mod_j1_fah_long.dta")) %>
     unit_code = j1_03,
     size_code = j1_03a,
     quantity  = j1_02    
+  ) %>% 
+  
+  mutate(
+    fcf_kg = case_when(
+      size_code == 50 ~ 0.08,
+      .default = fcf_kg
+    )
   )
+
+
+x <- bright_food |> group_by(item_code) %>% 
+  summarise(n()/6900*100)
+  
+conversion <- bright_food |> group_by(item_code, unit_code, size_code,fcf_kg) %>% 
+  summarise(n())
 
 
 recall_days <- 7   #
@@ -165,7 +180,7 @@ anti_join(food_afe, hh_info, by = "hhid") %>%
 # This mirrors the HIES approach; extend imputation pairs [E] as needed.
 
 food_afe <- food_afe %>%
-  mutate(log_quantity_g = log(quantity_ai))
+  mutate(log_quantity_g = log10(quantity_ai))
 
 quant_cutpoints <- food_afe %>%
   group_by(item_code) %>%
@@ -173,7 +188,7 @@ quant_cutpoints <- food_afe %>%
     mean_log = mean(log_quantity_g, na.rm = TRUE),
     sd_log   = sd(log_quantity_g,   na.rm = TRUE)
   ) %>%
-  mutate(upper_cut = mean_log + 2.5 * sd_log) %>%
+  mutate(upper_cut = mean_log + 2 * sd_log) %>%
   select(item_code, upper_cut)
 
 food_afe <- food_afe %>%
@@ -192,7 +207,7 @@ food_afe <- food_afe %>%
   mutate(
     quantity_ai = ifelse(
       is.na(quantity_ai),
-      quantile(quantity_ai, probs = 0.95, na.rm = TRUE),
+      quantile(quantity_ai, probs = 0.5, na.rm = TRUE),
       quantity_ai
     )
   ) %>%
@@ -251,7 +266,7 @@ hh_ai <- food_mn %>%
 sum(is.na(hh_ai$fe_mg ))
 
 hh_ai |> 
-  ggplot(aes(x = fe_mg))+
+  ggplot(aes(x = energy_kcal))+
   geom_histogram()
 
 ################################################################################
@@ -324,4 +339,4 @@ write_csv(bright_ml_targets,
 
 message("Script 2 complete. Outputs saved to ", path_to_data_out)
 
-# rm(list = ls())
+rm(list = ls())
