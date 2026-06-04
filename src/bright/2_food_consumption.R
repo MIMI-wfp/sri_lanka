@@ -148,6 +148,8 @@ converted_food <- converted_food %>%
     quantity_g = ifelse(is.na(edible_portion), quantity_g, quantity_g * edible_portion)
   )
 
+x <- converted_food %>% select(item_code, quantity_g)
+
 ################################################################################
 # HOUSEHOLD-LEVEL AGGREGATION (if multiple rows per hh × item)  ---------------
 # Some surveys record each consumption event on a separate row.
@@ -167,6 +169,8 @@ food_afe <- converted_food_hh %>%
     quantity_ai = quantity_g / (recall_days * afe)   # g per capita per day
   ) |> 
   filter(quantity_g>0)
+
+food_afe %>% filter(item_code %in% c(17, 18,19,20,21,22))
 
 # Households in food module but not in hh_info – investigate
 anti_join(food_afe, hh_info, by = "hhid") %>%

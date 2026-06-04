@@ -39,7 +39,8 @@ h_ar <- list(
   vita_rae_mcg = 490,
   folate_mcg   = 250,
   vitb12_mcg   = 2,
-  zn_mg        = 8.9,    # Sri Lanka-specific lower value
+  zn_mg        = 8.9, 
+  fe_mg = 15, 
   energy_kcal  = 2170
   # Note: iron is handled via the full-probability method below
 )
@@ -49,6 +50,10 @@ h_ar <- list(
 
 calc_inad <- function(har, comparison) {
   ifelse(comparison < har, 1, 0)
+}
+
+calc_nar <- function(har, comparison){
+  ifelse(comparison<har, comparison/har, 1)
 }
 
 # Join intake with HH info
@@ -70,7 +75,14 @@ survey_object <- hh_info %>%
     vita_inad   = calc_inad(h_ar$vita_rae_mcg, vita_rae_mcg),
     zn_inad     = calc_inad(h_ar$zn_mg,         zn_mg),
     folate_inad = calc_inad(h_ar$folate_mcg,     folate_mcg),
-    vitb12_inad = calc_inad(h_ar$vitb12_mcg,     vitb12_mcg)
+    vitb12_inad = calc_inad(h_ar$vitb12_mcg,     vitb12_mcg),
+    vita_nar   = calc_nar(h_ar$vita_rae_mcg, vita_rae_mcg),
+    zn_nar     = calc_nar(h_ar$zn_mg,         zn_mg),
+    folate_nar = calc_nar(h_ar$folate_mcg,     folate_mcg),
+    vitb12_nar = calc_nar(h_ar$vitb12_mcg,     vitb12_mcg),
+    fe_nar = calc_nar(h_ar$fe_mg,     fe_mg),
+    mar_real = (vita_nar+folate_nar+vitb12_nar+fe_nar+zn_nar)*100/5,
+    mar = ifelse(mar_real<75,1,0)
   ) %>%
   as_survey_design(
     ids     = ea,           # ⚠️ [C] PSU/cluster column
@@ -80,9 +92,12 @@ survey_object <- hh_info %>%
 ################################################################################
 # ADM1 PREVALENCE ESTIMATES  -------------------------------------------------
 
+survey_object %>% srvyr::summarise( mar = srvyr::survey_mean(mar, na.rm = T))
+
 adm1_average <- survey_object %>%
   srvyr::group_by(adm1) %>%
   srvyr::summarise(
+    mar_real = srvyr::survey_mean(mar_real, na.rm = T),
     # Median intakes
     across(
       ends_with(c("kcal", "mg", "g", "mcg")),
@@ -90,16 +105,18 @@ adm1_average <- survey_object %>%
     ),
     # Prevalence of inadequacy
     across(
-      ends_with("inad"),
+      c(ends_with("inad"),mar),
       ~ srvyr::survey_mean(.x == 1, proportion = TRUE, na.rm = TRUE) * 100
     )
   ) %>%
+  mutate(adm1 = as.character(adm1)) %>% 
   left_join(
     fe_full_prob(df, adm1, survey_wgt) %>%
-      rename(fe_inad = fe_mg_prop),
+      rename(fe_inad = fe_mg_prop) ,
     by = c("adm1" = "subpopulation")
   )
 
+write_csv(adm1_average,file = "data/processed/bright_adm1_avg.csv")
 
 ################################################################################
 # SPATIAL JOIN  ---------------------------------------------------------------
@@ -127,6 +144,13 @@ plot_sf_choropleth <- function(
   ggplot() +
     geom_sf(data = merged_sf,  aes(fill = .data[[fill_var]]), color = NA) +
     geom_sf(data = outline_sf, fill = NA, color = "black", size = 1) +
+    
+    geom_sf_text(
+      data = merged_sf |> dplyr::mutate(label = round(.data[[fill_var]]),0),
+      aes(label = label),
+      size = 3
+    )+
+  
     scale_fill_gradientn(
       colours = wesanderson::wes_palette(palette, n = n_pal, type = "continuous"),
       limits  = limits,
@@ -157,9 +181,9 @@ create_and_save_plots <- function(
   }
 
   micronutrients <- data.frame(
-    var_name  = c("zn_inad", "fe_inad", "vita_inad", "vitb12_inad", "folate_inad"),
-    title     = c("Zinc", "Iron", "Vitamin A", "Vitamin B12", "Folate"),
-    plot_name = c("zn", "fe", "va", "b12", "fo"),
+    var_name  = c("zn_inad", "fe_inad", "vita_inad", "vitb12_inad", "folate_inad","mar"),
+    title     = c("Zinc", "Iron", "Vitamin A", "Vitamin B12", "Folate","MAR"),
+    plot_name = c("zn", "fe", "va", "b12", "fo",'mar'),
     stringsAsFactors = FALSE
   )
 
@@ -206,8 +230,15 @@ create_and_save_plots <- function(
   return(all_plots)
 }
 
+
+mar_plot <- plot_sf_choropleth(adm1_sp, adm1_sp,"mar_real","Zissou1",limits = c(25,100),fill_name  = "mar",
+                   title      = "MAR",
+                   caption    = "BRIGHT Survey")
+
+ggsave(filename = file.path("outputs/bright/plots", "mar.png"), plot = mar_plot, width = 10, height = 8, dpi = 300, bg = "white")
+
 # Generate and save all maps
-all_plots <- create_and_save_plots(save_plots = TRUE)
+all_plots <- create_and_save_plots(save_plots = FALSE)
 
 ################################################################################
 # SAVE PREVALENCE TABLES  -----------------------------------------------------

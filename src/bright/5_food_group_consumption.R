@@ -1,5 +1,7 @@
   ################################################################################
   # LOAD DATA  -------------------------------------------------------------------
+  rm(list = ls())
+  
   library(labelled)
   library(tidyverse)
 
@@ -219,14 +221,16 @@
   plot_consumption_map(
     data = fruit_shp,
     fg = 'fruit_veg',
-    title = "Fruit and vegetable consumption"
-    # save_path = "outputs/maps/food_group/fruit_consumption.png"
+    title = "Fruit and vegetable consumption",
+    save_path = "outputs/bright/plots/food_group/fruit_consumption.png"
   )
 
   fruit_shp
   plot_consumption_map(
     data = pulses_shp,
     fg = 'pulses',
-    title = "Pulses consumption"
-    # save_path = "outputs/maps/food_group/pulses_consumption.png"
+    title = "Pulses consumption",
+    save_path = "outputs/bright/plots/food_group/pulses_consumption.png"
   )
+
+  

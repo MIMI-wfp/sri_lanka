@@ -254,6 +254,20 @@ hh_info <- bright_hh %>%
   select(survey, hhid, iso3, zone, adm1, adm2, ea, res,
          year, month, survey_wgt, afe)
 
+hh_info <- hh_info %>% 
+  mutate(adm1 = case_when(
+    #matching adm1 from bright to HIES
+    adm1 == 1 ~ "1",
+    adm1 == 2 ~ "3",
+    adm1 == 3 ~ "4",
+    adm1 == 4 ~ "5", 
+    adm1 == 5 ~ "7", 
+    adm1 == 6 ~ "2", 
+    adm1 == 7 ~ "6", 
+    adm1 == 8 ~ "8",
+    adm1 == 9 ~ "9" 
+  ))
+
 ################################################################################
 # SAVE OUTPUTS  ----------------------------------------------------------------
 
